@@ -1,0 +1,287 @@
+---
+title: "cogni_data"
+format: html
+editor: visual
+---
+
+## Quarto
+
+Quarto enables you to weave together content and executable code into a finished document. To learn more about Quarto see <https://quarto.org>.
+
+## Running Code
+
+When you click the **Render** button a document will be generated that includes both content and the output of embedded code. You can embed code like this:
+
+```{r}
+
+# Charger les packages nécessaires
+#install.packages(c("readxl", "psych", "lavaan", "GPArotation"))
+#install.packages("mirt")
+library(readxl)
+library(psych)
+library(lavaan)
+library(GPArotation)
+library(mirt)
+#install.packages("semPlot")
+library(semPlot)
+library(ggplot2)
+library(dplyr)
+```
+
+You can add options to executable code like this
+
+```{r}
+
+file_path <- "/Users/admmuaka/Documents/Master_1/stage/IRT/IRT_data.xlsx"
+data <- read_excel(file_path, sheet = "Sheet1")
+data
+
+file_path <- "/Users/admmuaka/Documents/Master_1/stage/IRT/subset_data.xlsx"
+subset_cogni<- read_excel(file_path, sheet = "Sheet1")
+subset_cogni
+
+
+```
+
+```{r}
+
+cognitive_data <- select_columns_between(data, "DC_A1", "DC_C8")
+
+cognitive_data 
+dim(cognitive_data)
+```
+
+Vérification des Conditions IRT
+
+1.  **Unidimensionalité** : L'analyse exploratoire et factorielle
+
+2.  **Indépendance Locale** : On va utiliser les résidus Q3 pour vérifier cela.
+
+3.  **Monotonicité** : Tracez les courbes de caractéristiques des items (ICC).
+
+```{r}
+#  Analyse factorielle exploratoire (EFA)
+efa_resultspc <- mirt(cognitive_data, 1, exploratory = TRUE)
+
+# Afficher les résultats
+summary(efa_resultspc)
+
+# Extraire les chargements factoriels
+loadings <- mod2values(efa_resultspc)
+loadings_df <- subset(loadings, grepl("a1", name))
+
+# Convertir les chargements en data frame pour ggplot
+loadings_df$item <- loadings_df$item
+loadings_df$loading <- loadings_df$value
+loadings_df <- loadings_df[order(loadings_df$loading), ]
+
+# Plotter les chargements factoriels avec ggplot2
+ggplot(loadings_df, aes(x = reorder(item, loading), y = loading)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  labs(title = "Factor Loadings from EFA",
+       x = "Items",
+       y = "Loadings") +
+  theme_minimal()
+
+
+
+
+
+```
+
+```{r}
+# Suppression des questions spécifiques en utilisant la sélection de colonnes de base R
+cognitive_data <- cognitive_data[, !(names(cognitive_data) %in%  c("DC_A1","DC_A2","DC_B3"))]
+
+# Afficher les premières lignes du dataframe modifié
+head(cognitive_data)
+```
+
+```{r}
+#  Analyse factorielle exploratoire (EFA)
+efa_resultspc <- mirt(cognitive_data, 1, exploratory = TRUE)
+
+# Afficher les résultats
+summary(efa_resultspc)
+
+# Extraire les chargements factoriels
+loadings <- mod2values(efa_resultspc)
+loadings_df <- subset(loadings, grepl("a1", name))
+
+# Convertir les chargements en data frame pour ggplot
+loadings_df$item <- loadings_df$item
+loadings_df$loading <- loadings_df$value
+loadings_df <- loadings_df[order(loadings_df$loading), ]
+
+# Plotter les chargements factoriels avec ggplot2
+ggplot(loadings_df, aes(x = reorder(item, loading), y = loading)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  labs(title = "Factor Loadings from EFA",
+       x = "Items",
+       y = "Loadings") +
+  theme_minimal()
+
+
+
+
+
+```
+
+```{r}
+# Calculer la matrice de corrélation
+cor_matrix <- cor(cognitive_data, use = "pairwise.complete.obs")
+
+# Effectuer une analyse factorielle exploratoire avec extraction des valeurs propres
+fa_parallel <- fa.parallel(cor_matrix, fa = "fa", n.obs = nrow(cognitive_data))
+
+# Afficher les valeurs propres
+print(fa_parallel$fa.values)
+
+# Tracer les valeurs propres
+plot(fa_parallel$fa.values, type = "b", 
+     xlab = "Number of Factors", 
+     ylab = "Eigenvalue", 
+     main = "Scree Plot")
+
+# Ajouter une ligne horizontale à y = 1 pour faciliter l'interprétation
+abline(h = 1, col = "red", lty = 2)
+```
+
+```{r}
+# Vérification de l'indépendance locale via les résidus Q3
+residualspc <- residuals(efa_resultspc, type = "Q3")
+#print(residuals)
+```
+
+```{r}
+# Convertir les résidus en data frame pour analyse
+residuals_dfps <- as.data.frame(as.table(residualsps))
+colnames(residuals_dfps) <- c("Item1", "Item2", "Q3")
+# Filtrer les paires avec des valeurs Q3 élevées (généralement > 0.3 ou < -0.3)
+high_Q3_pairsps <- subset(residuals_dfps, abs(Q3) > 0.3)
+high_Q3_pairsps
+```
+
+```{r}
+# Ajuster le modèle multidimensionnel
+mod_irt_multidimpc2 <- mirt(cognitive_data, 2)
+
+# Afficher les résultats du modèle
+summary(mod_irt_multidimpc2)
+```
+
+```{r}
+anova(efa_resultspc,mod_irt_multidimpc2)
+```
+
+```{r}
+# Ajuster le modèle multidimensionnel
+mod_irt_multidimpc <- mirt(cognitive_data, 3)
+
+# Afficher les résultats du modèle
+summary(mod_irt_multidimpc)
+```
+
+Le seuil à 0.3
+
+```{r}
+# Afficher les résultats
+summary(mod_irt_multidimpc, suppress =0.3)
+```
+
+```{r}
+anova(efa_resultspc,mod_irt_multidimpc) 
+anova(mod_irt_multidimpc2,mod_irt_multidimpc)
+```
+
+```{r}
+# Vérifier les indices d'ajustement
+modelfit_multidimpc <- M2(efa_resultspc)
+modelfit_multidimpc
+# Extraire le RMSEA
+rmsea_valuepc <- modelfit_multidimpc$RMSEA[1]
+print(paste("RMSEA: ", rmsea_valuepc))
+
+# Interpréter le RMSEA
+if (rmsea_valuepc < 0.05) {
+  cat("Le modèle a un très bon ajustement.\n")
+} else if (rmsea_valuepc < 0.08) {
+  cat("Le modèle a un ajustement acceptable.\n")
+} else if (rmsea_valuepc < 0.10) {
+  cat("Le modèle a un ajustement médiocre.\n")
+} else {
+  cat("Le modèle a un mauvais ajustement.\n")
+}
+```
+
+```{r}
+# Vérifier les indices d'ajustement
+modelfit_multidimpc <- M2(mod_irt_multidimpc2)
+modelfit_multidimpc
+# Extraire le RMSEA
+rmsea_valuepc <- modelfit_multidimpc$RMSEA[1]
+print(paste("RMSEA: ", rmsea_valuepc))
+
+# Interpréter le RMSEA
+if (rmsea_valuepc < 0.05) {
+  cat("Le modèle a un très bon ajustement.\n")
+} else if (rmsea_valuepc < 0.08) {
+  cat("Le modèle a un ajustement acceptable.\n")
+} else if (rmsea_valuepc < 0.10) {
+  cat("Le modèle a un ajustement médiocre.\n")
+} else {
+  cat("Le modèle a un mauvais ajustement.\n")
+}
+```
+
+```{r}
+# Vérifier les indices d'ajustement
+modelfit_multidimpc <- M2(mod_irt_multidimpc)
+modelfit_multidimpc
+# Extraire le RMSEA
+rmsea_valuepc <- modelfit_multidimpc$RMSEA[1]
+print(paste("RMSEA: ", rmsea_valuepc))
+
+# Interpréter le RMSEA
+if (rmsea_valuepc < 0.05) {
+  cat("Le modèle a un très bon ajustement.\n")
+} else if (rmsea_valuepc < 0.08) {
+  cat("Le modèle a un ajustement acceptable.\n")
+} else if (rmsea_valuepc < 0.10) {
+  cat("Le modèle a un ajustement médiocre.\n")
+} else {
+  cat("Le modèle a un mauvais ajustement.\n")
+}
+```
+
+```{r}
+
+# Vérifier les indices d'ajustement pour chaque item
+item_fitc <- itemfit(mod_irt_multidimpc)
+print(item_fitc)
+
+```
+
+```{r}
+# Extraire les paramètres des items
+item_paramsc <- coef(mod_irt_multidimpc, IRTpars = TRUE, simplify = TRUE)
+print(item_paramsc)
+
+```
+
+```{r}
+# Convert relevant columns to factors
+subset_cogni$Sexe_01 <- as.factor(subset_cogni$Sexe_01)
+
+# Define the grouping variable
+groups <- subset_cogni$Sexe_01 
+
+# Fit the more complex multi-group model assuming DIF (with free items)
+dif_model_cogni <- multipleGroup(cognitive_data, 3, group = groups, invariance = c("slopes", "intercepts", "free_items"))
+# Print the model summary to examine gender effects
+summary(dif_model_cogni)
+
+
+```
