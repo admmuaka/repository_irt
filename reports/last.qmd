@@ -1,0 +1,646 @@
+---
+title: "IRT"
+format: html
+editor: visual
+---
+
+```{r}
+# Charger les packages nécessaires
+#install.packages(c("readxl", "psych", "lavaan", "GPArotation"))
+#install.packages("mirt")
+library(readxl)
+library(psych)
+library(lavaan)
+library(GPArotation)
+library(mirt)
+#install.packages("semPlot")
+library(semPlot)
+library(ggplot2)
+library(tidyr)
+library(stringr)
+library(writexl)
+library(readr)
+library(dplyr)
+library(ltm)
+```
+
+```{r}
+file_path <- "/Users/admmuaka/Documents/Master_1/stage/IRT/tableau_fusionne2.xlsx"
+data <- read_excel(file_path, sheet = "Sheet1")
+data<- data%>%rename(Sexe_01 = `Sexe(0,1)`)
+data<- data%>%rename(Pb_Physique_01 = `Pb_Physique_(0,1)`)
+#combined_data<- combined_data%>%rename(Pb_Physique_01 = `Pb_Physique_(0,1)`)
+data
+
+```
+
+```{r}
+# Function to standardize column names
+standardize_colnames <- function(df) {
+  colnames(df) <- colnames(df) %>%
+    str_trim() %>%
+    str_replace_all(" ", "_") %>%
+    str_replace_all("[^a-zA-Z0-9_]", "")
+  df
+}
+
+# Standardize column names
+data <- standardize_colnames(data)
+data
+```
+
+```{r}
+convert_to_character <- function(df) {
+  df %>% mutate(across(everything(), as.character))
+}
+
+data <- convert_to_character(data)
+combined_data<-data
+combined_data
+```
+
+```{r}
+#Identification des colonnes avec des valeurs manquantes 
+missing_values_summary <- colSums(is.na(combined_data))
+
+#Filtrage des colonnes avec des valeurs manquantes 
+missing_values_summary <- missing_values_summary[missing_values_summary > 0]
+
+#Vérification des types de données des colonnes avec des valeurs manquantes
+data_types <- sapply(combined_data[, names(missing_values_summary)], class)
+data_types
+
+
+```
+
+```{r}
+# Function to calculate the mode
+stat_mode <- function(x) {
+  ux <- unique(x)
+  ux[which.max(tabulate(match(x, ux)))]
+}
+# Impute missing values in key columns
+combined_data <- combined_data %>%
+  mutate(
+    Sexe_01 = if_else(is.na(Sexe_01), as.character(stat_mode(Sexe_01)), Sexe_01),
+    Age = if_else(is.na(Age), as.character(median(as.numeric(Age), na.rm = TRUE)), Age),
+    Pb_Physique_01 = if_else(is.na(Pb_Physique_01), as.character(stat_mode(Pb_Physique_01)), Pb_Physique_01)
+  )
+combined_data
+```
+
+```{r}
+combined_data <- combined_data %>%
+  mutate(
+    Q2 = as.numeric(Q2),
+    Q3 = (Q3),
+    Q4 = (Q4),
+    Q5 = (Q5)
+  )
+
+
+```
+
+```{r}
+# Define the columns that should remain as character
+character_columns <- c("Nom_Prenom")
+# Convert all other columns to numeric
+combined_data <- combined_data %>%
+  mutate(across(
+    .cols = !all_of(character_columns),
+    .fns = ~ as.numeric(as.character(.))
+  ))
+
+combined_data
+
+```
+
+```{r}
+# Impute missing values
+combined_data <- combined_data %>%
+  mutate(
+    Nom_Prenom = if_else(is.na(Nom_Prenom), "Unknown", Nom_Prenom)
+  )
+combined_data
+```
+
+```{r}
+# Identify numeric columns that are not in the list of character columns
+numeric_columns <- setdiff(colnames(combined_data), c("Nom_Prenom"))
+numeric_columns
+```
+
+```{r}
+# Function to impute missing values with the median
+impute_median <- function(x) {
+  if (is.numeric(x)) {
+    x[is.na(x)] <- median(x, na.rm = TRUE)
+  }
+  return(x)
+}
+# Apply median imputation to all numeric columns
+combined_data[numeric_columns] <- lapply(combined_data[numeric_columns], impute_median)
+combined_data
+
+```
+
+```{r}
+# Function to convert specified character variables to numeric factors (nominal)
+convert_to_numeric_nominal <- function(df, vars) {
+  df <- df %>%
+    mutate(across(all_of(vars), ~ as.numeric(factor(.))))
+  return(df)
+}
+
+# List of variables to convert
+character_vars <- c("Patho_C_1", "Patho_C_2", "interprtation", "Stade_change")
+
+# Convert specified character variables to numeric nominal
+combined_data_nominal <- convert_to_numeric_nominal(combined_data, character_vars)
+
+
+```
+
+```{r}
+# List of variable names by type
+binary_vars_Age <- c("Sexe_01", "Pb_Physique_01", "Age")
+
+ordinal_vars <- c("Q1", "Q2", "Q3", "Q4", "Q5", "Q6", "Q7", "Q8", "Q9", "Q10", "Q11", "Q12", 
+                  "Q13", "Q14", "DPSY_A1", "DPSY_A2", "DPSY_A3", "DPSY__A4", "DPSY__A5", "DPSY_A6", 
+                  "DPSY_B1", "DPSY_B2", "DPSY_B3", "DPSY_B4", "DPSY_C1", "DPSY_C2", "DPSY_C3", 
+                  "DPSY_C4", "DS_A1", "DS_A2", "DS_A3", "DS_A4", "DS_A5", "DS_A6", 
+                  "DS_A7", "DS_B1", "DS_B2", "DS_B3", "DS_B4", "DS_B5", "DC_A1", "DC_A2", "DC_A3", 
+                  "DC_B1", "DC_B2", "DC_B3", "DC_C1", "DC_C2", "DC_C3", "DC_C4", 
+                  "DC_C5", "DC_C6", "DC_C7", "DC_C8")
+
+# Create a subset of the data with only the selected variables
+selected_vars1 <- c(binary_vars_Age, ordinal_vars)
+subset_data <- combined_data_nominal[, selected_vars1]
+
+subset_data
+
+```
+
+```{r}
+#IRT data
+selected_vars2 <- c(ordinal_vars)
+IRT_data<- combined_data_nominal[, selected_vars2]
+
+IRT_data
+
+
+```
+
+```{r}
+
+# Categorize 'Age'
+subset_data$AgeGroup <- cut(subset_data$Age, breaks = c(-Inf, 20, 30, 40, 50, Inf), 
+                            labels = c("0-20", "21-30", "31-40", "41-50", "51+"))
+
+# Manually replace 5 with 2 in Q7, Re-map.
+#IRT_data$Q7[subset_data$Q7 == 5] <- 2
+
+subset_data
+IRT_data
+
+```
+
+```{r}
+# Enregistrer le tableau fusionné dans un nouveau fichier Excel
+output_file <- "/Users/admmuaka/Documents/Master_1/stage/IRT/subset_data.xlsx"
+write_xlsx(subset_data, output_file)
+# Enregistrer le tableau fusionné dans un nouveau fichier Excel
+output_file <- "/Users/admmuaka/Documents/Master_1/stage/IRT/IRT_data.xlsx"
+write_xlsx(subset_data, output_file)
+```
+
+```{r}
+# Suppression des questions spécifiques en utilisant la sélection de colonnes de base R
+IRT_data <- IRT_data[, !(names(IRT_data) %in% c("Q7", "Q12", "DC_B3","DC_C6", "DPSY_B2","DPSY_C4","DPSY__A5","Q6","Q13","Q14","DPSY_A1","DS_A1","DS_A2","DS_A5","DS_B2","DC_C2","DC_C5","DC_C8"))]
+
+
+# Afficher les premières lignes du dataframe modifié
+head(IRT_data)
+
+```
+
+```{r}
+dim(IRT_data)
+```
+
+```{r}
+# Afficher les premières lignes de la colonne DPSY_A2 avant l'inversion
+#print(IRT_data$DPSY_A2)
+
+# Définir le score maximal
+max_score <- 7
+
+# Inverser les scores de la question DPSY_A2
+IRT_data$DPSY_A2 <- max_score + 1 - IRT_data$DPSY_A2
+
+# Afficher les premières lignes de la colonne DPSY_A2 après l'inversion
+#print(IRT_data$DPSY_A2)
+```
+
+```{r}
+#  Analyse factorielle exploratoire (EFA)
+efa_resultsps <- mirt(IRT_data, 1, exploratory = TRUE)
+
+# Afficher les résultats
+summary(efa_resultsps)
+
+# Extraire les chargements factoriels
+loadings <- mod2values(efa_resultsps)
+loadings_df <- subset(loadings, grepl("a1", name))
+
+# Convertir les chargements en data frame pour ggplot
+loadings_df$item <- loadings_df$item
+loadings_df$loading <- loadings_df$value
+loadings_df <- loadings_df[order(loadings_df$loading), ]
+
+# Plotter les chargements factoriels avec ggplot2
+ggplot(loadings_df, aes(x = reorder(item, loading), y = loading)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  labs(title = "Factor Loadings from EFA",
+       x = "Items",
+       y = "Loadings") +
+  theme_minimal()
+
+
+
+
+
+```
+
+```{r}
+# Fit the GRM model
+grm_model <- mirt(IRT_data, model = 1, itemtype = "graded")
+summary(grm_model)
+```
+
+Après avoir modélisé les données, nous avons vérifié ci-dessous si les items fonctionnent différemment selon les groupes basés sur le sexe, les problèmes physiques et les groupes d'âge. Si les items varient selon ces groupes, nous redessinerons le modèle pour inclure ces variables en tant que covariables pour obtenir de meilleurs résultats. Ci-dessous se trouve une explication de chaque étape du code pour garantir une compréhension claire de l'analyse.
+
+### Explication de l'analyse et du code :
+
+1.  Nous convertissons chaque variable en facteur car les facteurs sont des variables catégorielles en R qui nous permettent de définir différents groupes pour l'analyse. Ceci est essentiel pour l'analyse du fonctionnement différentiel des items (DIF) afin de comparer la performance des items entre ces groupes.
+
+### Définir les items d'ancrage :
+
+Les items d'ancrage sont utilisés comme référence pour assurer la comparabilité entre les groupes. Sans items d'ancrage, l'analyse DIF ne peut pas être exécutée car le modèle a besoin d'une base stable pour comparer les autres items.
+
+Pour l'analyse IRT, la sélection des variables d'ancrage est cruciale car elles servent de référence stable pour notre analyse du fonctionnement différentiel des items (DIF). Les items d'ancrage sont supposés fonctionner de manière similaire entre différents groupes (par exemple, sexe, âge) et sont choisis selon des critères tels que la probabilité minimale de DIF, la représentativité du contenu et un nombre suffisant (généralement 30-40 % du total des items). De plus, il est important de considérer les hypothèses de l'IRT comme l'unidimensionnalité (s'assurer qu'un seul trait latent explique toutes les réponses) et l'indépendance locale (les réponses aux items sont indépendantes étant donné le trait latent) pour garantir la validité et la fiabilité de notre analyse.
+
+Ensuite, nous ajustons un modèle IRT multi-groupe en tenant compte du DIF.
+
+```{r}
+# Convert relevant columns to factors
+subset_data$Sexe_01 <- as.factor(subset_data$Sexe_01)
+
+# Define the grouping variable
+groups <- subset_data$Sexe_01 
+
+# Define anchor items
+anchor_items <- c("Q1", "Q2", "Q3", "Q4", "Q5", "Q6", "Q7", "Q8", "Q9", "Q10", 
+                  "Q11", "Q12", "Q13", "Q14", "DPSY_A1", "DPSY_A2", "DPSY_A3", "DPSY_A4")
+
+# Fit the more complex multi-group model assuming DIF (with free items)
+dif_model <- multipleGroup(IRT_data, 1, group = groups, invariance = c("slopes", "intercepts", "free_items"), anchor = anchor_items)
+# Print the model summary to examine gender effects
+summary(dif_model)
+```
+
+```{r}
+# Extract and print the coefficients to see the gender effect on IRT parameters
+coef_gender_effects <- coef(dif_model, simplify = TRUE)
+print(coef_gender_effects)
+```
+
+```{r}
+# Convert AgeGroup to factor
+subset_data$Age <- as.factor(subset_data$Age)
+
+# Define the grouping variable
+groups_age <- subset_data$Age
+
+# Fit the multi-group model with AgeGroup as covariate
+dif_model_age <- multipleGroup(IRT_data, 1, group = groups_age, invariance = c("slopes", "intercepts", "free_items"), anchor = anchor_items)
+# Print the model summary to examine effects of AgeGroup
+summary(dif_model_age)
+
+```
+
+```{r}
+# Print the model summary to examine effects of AgeGroup
+summary(dif_model_age)
+```
+
+```{r}
+# Extract and print the coefficients to see the effect of AgeGroup on IRT parameters
+coef_effects_age <- coef(dif_model_age, simplify = TRUE)
+print(coef_effects_age)
+ 
+```
+
+```{r}
+# Convert relevant columns to factors
+subset_data$Pb_Physique_01 <- as.factor(subset_data$Pb_Physique_01)
+
+# Define the grouping variable
+groups <- subset_data$Pb_Physique_01
+
+# Fit the more complex multi-group model assuming DIF (with free items)
+dif_model <- multipleGroup(IRT_data, 1, group = groups, invariance = c("slopes", "intercepts", "free_items"), anchor = anchor_items)
+
+# Print the model summary to examine effects of Pb_Physique_01
+summary(dif_model)
+
+```
+
+```{r}
+# Extract and print the coefficients to see the effect of Pb_Physique_01 on IRT parameters
+coef_effects <- coef(dif_model, simplify = TRUE)
+print(coef_effects)
+```
+
+### Conclusions clés pour les trois variables :
+
+#### Paramètres de discrimination (a1) :
+
+Les paramètres de discrimination (a1) indiquent dans quelle mesure chaque item différencie bien les individus ayant différents niveaux du trait latent. Ces paramètres sont cohérents dans tous les groupes pour toutes les variables, ce qui suggère qu'il n'y a pas de DIF significatif en termes de discrimination des items.
+
+#### Paramètres de difficulté (d1, d2, d3, etc.) :
+
+Les paramètres de difficulté indiquent les seuils auxquels les répondants passent d'une catégorie de réponse à une autre. Ces paramètres sont également cohérents dans les deux groupes pour toutes les variables, indiquant qu'il n'y a pas de DIF significatif en termes de difficulté des items.
+
+#### Valeurs NA :
+
+Certaines entrées dans les paramètres de difficulté ont des valeurs NA. Cela se produit parce que certains items ont moins de catégories de réponse que d'autres. Par exemple, les items avec seulement deux catégories de réponse (items binaires) n'ont pas de seuils multiples, et donc, les paramètres de difficulté plus élevés (d2, d3, etc.) ne sont pas applicables et sont représentés par NA. Cela est typique dans les modèles IRT où le nombre de seuils varie en fonction du nombre de catégories de réponse pour chaque item.
+
+#### Cohérence entre les groupes :
+
+La cohérence des paramètres de discrimination et de difficulté entre les groupes indique que les items fonctionnent de manière similaire, que les répondants aient des problèmes physiques, soient jeunes ou âgés, hommes ou femmes. Cela suggère qu'il n'y a pas de DIF significatif pour les items basés sur la présence de problèmes physiques.
+
+#### Conclusion
+
+Cela indique que l'instrument de mesure est impartial et fiable pour tous les groupes et toutes les variables, garantissant que le trait latent est mesuré de manière cohérente.
+
+```{r}
+#Summary
+summary(grm_model)
+```
+
+```{r}
+# Afficher les résultats
+summary(grm_model, suppress =0.3)
+```
+
+### Charges factorielles (F1) :
+
+#### Définition :
+
+Les charges factorielles représentent la force et la direction de la relation entre chaque item et le trait latent sous-jacent.
+
+#### Interprétation :
+
+Des valeurs absolues plus élevées indiquent des relations plus fortes. Par exemple, DPSY_B1 a une charge factorielle élevée (0,8178), indiquant qu'il est fortement lié au trait latent. Les items avec des charges factorielles faibles, comme DC_C6 sont faiblement liés au trait latent.
+
+### Communalités (h2) :
+
+#### Définition :
+
+Les communalités représentent la proportion de la variance de chaque item qui est expliquée par le trait latent.
+
+#### Interprétation :
+
+Des valeurs plus élevées indiquent qu'une plus grande partie de la variance de l'item est expliquée par le trait latent. Par exemple, Q7 a une communalité de 0,66877, indiquant qu'environ 66,877 % de sa variance est expliquée par le trait latent.
+
+Des valeurs plus faibles, comme pour DC_C6 (0,00964), suggèrent que le trait latent explique peu de la variance de l'item.
+
+### Interprétation Résumée :
+
+#### Items Forts :
+
+Des items comme .... .....ont des charges factorielles et des communalités élevées, indiquant qu'ils sont de forts indicateurs du trait latent mesuré.
+
+#### Items Faibles :
+
+Des items comme ........ ont des charges factorielles et des communalités faibles, indiquant qu'ils sont de faibles indicateurs du trait latent.
+
+#### Variance Expliquée :
+
+Les communalités à travers les items montrent des degrés variés de variance expliquée par le trait latent, soulignant quels items sont plus ou moins influencés par la construction sous-jacente.
+
+```{r}
+# Calculate and print item fit statistics
+item_fit <- itemfit(grm_model)
+print(item_fit)
+```
+
+```{r}
+# Extract overall model fit indices
+model_fit_indices <- M2(grm_model)
+print(model_fit_indices)
+```
+
+```{r}
+dim(IRT_data)
+```
+
+### Interprétation et Contexte
+
+#### RMSEA :
+
+La valeur RMSEA de 0,0994 suggère un bon ajustement.
+
+#### Considérations :
+
+##### Taille d'échantillon réduite :
+
+L'analyse a été réalisée avec une taille d'échantillon de 396, ce qui est relativement petit pour les modèles IRT multidimensionnels. Les petites tailles d'échantillon peuvent conduire à des estimations de paramètres instables et à une puissance réduite, affectant les indices d'ajustement du modèle.
+
+##### Données manquantes :
+
+Une quantité significative de valeurs manquantes dans les données brutes a nécessité une imputation. Bien que les méthodes d'imputation aident à atténuer l'impact des données manquantes, elles peuvent introduire un biais et réduire la variabilité, affectant potentiellement la précision et l'ajustement du modèle.
+
+```{r}
+# Plot ICCs for all items
+plot(grm_model, type = 'trace')
+```
+
+```{r}
+# Plot Test Information Function
+plot(grm_model, type = 'info')
+
+```
+
+### Interprétation des Graphiques :
+
+#### Graphique des Fonctions de Probabilité des Items (premier graphique) :
+
+Le graphique des fonctions de probabilité des items illustre la probabilité de sélectionner chaque catégorie de réponse pour tous les items en fonction des différents niveaux du trait latent (θ), allant de -6 à 6. Chaque courbe colorée représente une catégorie de réponse distincte, montrant comment la probabilité de sélectionner chaque catégorie change avec les niveaux variables du trait latent. Des items tels que DC_B3 et Q5 montrent une différenciation claire entre les catégories de réponse, indiquant leur efficacité à distinguer entre différents niveaux du trait latent.
+
+#### Graphique de la Fonction d'Information du Test (deuxième graphique) :
+
+Le graphique de la fonction d'information du test indique que le test fournit le plus d'information et donc la plus grande précision autour du niveau moyen du trait latent (θ ≈ 0). L'information diminue à mesure que l'on se déplace vers les extrêmes, indiquant que le test est moins précis pour les individus ayant des niveaux très élevés ou très bas du trait latent. Cela suggère que le test est le plus efficace pour mesurer les individus avec des niveaux modérés du trait latent.
+
+```{r}
+# Extract item parameters
+item_params <- coef(grm_model, IRTpars = TRUE, simplify = TRUE)
+
+# Access the 'items' component directly
+item_params_df <- as.data.frame(item_params$items)
+
+# Print the structure of item_params_df to ensure it's correct
+str(item_params_df)
+```
+
+```{r}
+# Identify items with low discrimination (e.g., a < 0.5)
+low_discrimination_items <- which(item_params_df[, "a"] < 0.5)
+low_discrimination_names <- names(low_discrimination_items)
+
+# Identify items with high discrimination (e.g., a > 1.5)
+high_discrimination_items <- which(item_params_df[, "a"] > 1.5)
+high_discrimination_names <- names(high_discrimination_items)
+
+# Identify items with low difficulty (b < -2)
+low_difficulty_items <- which(apply(item_params_df[, c("b1", "b2", "b3", "b4")], 1, function(x) any(x < -2) & !any(x > 2)))
+low_difficulty_names <- rownames(item_params_df)[low_difficulty_items]
+
+# Identify items with high difficulty (b > 2)
+high_difficulty_items <- which(apply(item_params_df[, c("b1", "b2", "b3", "b4")], 1, function(x) any(x > 2) & !any(x < -2)))
+high_difficulty_names <- rownames(item_params_df)[high_difficulty_items]
+
+# Print the results
+cat("Items with low discrimination (a < 0.5):\n")
+```
+
+```{r}
+print(setNames(low_discrimination_items, rownames(item_params_df)[low_discrimination_items]))
+```
+
+```{r}
+cat("Items with high discrimination (a > 1.5):\n")
+print(setNames(high_discrimination_items, rownames(item_params_df)[high_discrimination_items]))
+
+```
+
+```{r}
+cat("Items with low difficulty (b < -2):\n")
+print(setNames(low_difficulty_items, low_difficulty_names))
+
+```
+
+```{r}
+cat("Items with high difficulty (b > 2):\n")
+print(setNames(high_difficulty_items, high_difficulty_names))
+```
+
+### Paramètre de Discrimination (a):
+
+#### Paramètres de Difficulté pour différentes catégories de réponse (b1, b2, b3, b4, b5, b6, b7) :
+
+#### Items avec une faible discrimination :
+
+Les items avec une faible discrimination (a \< 0.5) sont moins efficaces pour distinguer entre les individus avec différents niveaux du trait latent. Ces items incluent :
+
+### Paramètre de Discrimination (a):
+
+#### Paramètres de Difficulté pour différentes catégories de réponse (b1, b2, b3, b4, b5, b6, b7) :
+
+#### Items avec une faible discrimination :
+
+Les items avec une faible discrimination (a \< 0.5) sont moins efficaces pour distinguer entre les individus avec différents niveaux du trait latent. Ces items incluent :
+
+Q6, Q7, Q12, Q13, DPSY_A1, DPSY_A2, DPSY\_\_A5, DPSY_B2 ,DPSY_C4, DS_A1 ,DS_A2, DS_A5 ,DS_B2,DC_B3, DC_C5, DC_C6, DC_C8
+
+#### Items avec une forte discrimination :
+
+Les items avec une forte discrimination (a \> 1.5) sont très efficaces pour distinguer entre les individus avec différents niveaux du trait latent. Ces items incluent :
+
+Q4, DPSY_A3, DPSY_B1 ,DPSY_B3
+
+#### Items avec une faible difficulté :
+
+Les items avec une faible difficulté (b \< -2) sont des items plus faciles que la majorité des répondants sont susceptibles d'approuver, même à des niveaux plus bas du trait latent. Ces items incluent :
+
+Q6 ,Q7, Q12, Q13, DPSY_A1, DPSY_A2, DPSY\_\_A5 ,DPSY_B2, DPSY_C4 ,DS_A1 ,DS_A2 ,DS_A5 ,DS_B2 ,,DC_B3 ,DC_C5 ,DC_C6, DC_C8
+
+#### Items avec une haute difficulté :
+
+Les items avec une haute difficulté (b \> 2) sont des items plus difficiles que seule une petite proportion de répondants est susceptible d'approuver, même à des niveaux plus élevés du trait latent. Ces items incluent :
+
+Q6 ,Q11
+
+```{r}
+# Calculer les scores des capacités latentes
+scores_latents <- fscores(grm_model, method = 'EAP')
+
+# Afficher les scores pour les 6 premiers individus
+head(scores_latents)
+```
+
+```{r}
+# Calcule des statistiques résumées des scores latents
+summary(scores_latents)
+
+```
+
+```{r}
+# Convertir les scores en data frame pour ggplot
+scores_df <- as.data.frame(scores_latents)
+colnames(scores_df) <- "F1"
+
+# Générer un histogramme des scores latents
+library(ggplot2)
+
+ggplot(scores_df, aes(x = F1)) +
+  geom_histogram(binwidth = 0.5, fill = "blue", color = "black") +
+  labs(title = "Histogram of Latent Scores",
+       x = "Factor 1 (F1)",
+       y = "Count") +
+  theme_minimal()
+```
+
+```{r}
+# Convertir les scores en data frame pour ggplot
+scores_df <- as.data.frame(scores_latents)
+colnames(scores_df) <- "F1"
+
+# Diagramme de points pour visualiser la distribution des scores latents
+library(ggplot2)
+
+ggplot(scores_df, aes(x = F1, y = 0)) +
+  geom_point(position = position_jitter(height = 0.1), color = "blue") +
+  labs(title = "Dot Plot of Latent Scores",
+       x = "Factor 1 (F1)",
+       y = "") +
+  theme_minimal() +
+  theme(axis.text.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        panel.grid.major.y = element_blank(),
+        panel.grid.minor.y = element_blank())
+```
+
+```{r}
+# Vérifiez le type de scores_latents
+class(scores_latents)
+# Si ce n'est pas un data frame, le convertir
+if (!is.data.frame(scores_latents)) {
+  scores_latents <- as.data.frame(scores_latents)
+}
+class(scores_latents)
+
+# Test de Shapiro-Wilk pour F1
+shapiro.test(scores_latents$F1)
+
+```
+
+La pvalue = 0.4771 étant supérieure à 0.05 nous pouvons dire que nos théta suivent une distribution normale .
+
+```{r}
+# Diagramme Q-Q pour F1
+qqnorm(scores_latents$F1)
+qqline(scores_latents$F1, col = "red")
+```
