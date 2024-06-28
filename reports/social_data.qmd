@@ -1,0 +1,794 @@
+---
+title: "social data"
+format: html
+editor: visual
+---
+
+```{r}
+# Charger les packages nécessaires
+#install.packages(c("readxl", "psych", "lavaan", "GPArotation"))
+#install.packages("mirt")
+library(readxl)
+library(psych)
+library(lavaan)
+library(GPArotation)
+library(mirt)
+#install.packages("semPlot")
+library(semPlot)
+library(ggplot2)
+library(dplyr)
+```
+
+You can add options to executable code like this
+
+```{r}
+#file_path <- "/Users/admmuaka/Documents/Master_1/stage/IRT/tableau_fusionne2.xlsx"
+#data <- read_excel(file_path, sheet = "Sheet1")
+
+#data
+
+file_path <- "/Users/admmuaka/Documents/Master_1/stage/IRT/IRT_data.xlsx"
+data <- read_excel(file_path, sheet = "Sheet1")
+data
+
+file_path <- "/Users/admmuaka/Documents/Master_1/stage/IRT/subset_data.xlsx"
+subset_data <- read_excel(file_path, sheet = "Sheet1")
+subset_data
+
+
+```
+
+```{r}
+#sociale_data <- data %>% select(DS_A1:DS_B5,`Sexe(0,1)`,`Pb_Physique_(0,1)` )
+#sociale_data <-na.omit(sociale_data)
+#sociale_data <- sociale_data %>%
+ # rename(Sexe = `Sexe(0,1)`,Pb_Physique_01 =`Pb_Physique_(0,1)`)
+#sociale_data$Sexe <- as.numeric(sociale_data$Sexe)
+
+#sociale_data
+
+sociale_data <- data[, c("DS_A1", "DS_A2", "DS_A3", "DS_A4", "DS_A5", "DS_A6", 
+                  "DS_A7", "DS_B1", "DS_B2", "DS_B3", "DS_B4", "DS_B5"
+)]
+sociale_data 
+
+subset_social <-subset_data[, c("Sexe_01","Age","Pb_Physique_01","DS_A1", "DS_A2", "DS_A3", "DS_A4", "DS_A5", "DS_A6", 
+                  "DS_A7", "DS_B1", "DS_B2", "DS_B3", "DS_B4", "DS_B5","AgeGroup")]
+
+subset_social
+
+dim(sociale_data)
+```
+
+-   **Taille de l'Échantillon** :
+
+    Le modèle a deux facteurs (F1 et F2) avec un total de 12 items.
+
+    Nous avons 396 participants, ce qui est généralement considéré comme un échantillon de taille modérée.
+
+    Un ratio de 10 participants par paramètre estimé est souvent recommandé, bien que ce ratio puisse varier en fonction du domaine d'étude et de la robustesse du modèle.
+
+    On aura pas de de sur-ajustement
+
+Vérification des Conditions IRT
+
+1.  **Unidimensionalité** : L'analyse exploratoire et factorielle
+
+2.  **Indépendance Locale** : On va utiliser les résidus Q3 pour vérifier cela.
+
+3.  **Monotonicité** : Tracez les courbes de caractéristiques des items (ICC).
+
+```{r}
+#  Analyse factorielle exploratoire (EFA)
+efa_results <- mirt(sociale_data, 1, exploratory = TRUE)
+
+# Afficher les résultats
+summary(efa_results)
+
+# Extraire les chargements factoriels
+loadings <- mod2values(efa_results)
+loadings_df <- subset(loadings, grepl("a1", name))
+
+# Convertir les chargements en data frame pour ggplot
+loadings_df$item <- loadings_df$item
+loadings_df$loading <- loadings_df$value
+loadings_df <- loadings_df[order(loadings_df$loading), ]
+
+# Plotter les chargements factoriels avec ggplot2
+ggplot(loadings_df, aes(x = reorder(item, loading), y = loading)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  labs(title = "Factor Loadings from EFA",
+       x = "Items",
+       y = "Loadings") +
+  theme_minimal()
+
+
+
+```
+
+-   **Charges factorielles :**
+
+    #### Définition :
+
+    Les charges factorielles représentent la force de la relation entre chaque item et le trait latent sous-jacent.
+
+    On fixe le seuil à 0.3
+
+    Nous pouvons voir que les items ont des chargements factoriels élevés (supérieurs à 0.3), indiquant qu'ils sont fortement corrélés avec le facteur latent.
+
+    #### SS Loadings et Proportion Var
+
+-   **SS Loadings (Sum of Squared Loadings)** : La somme des carrés des chargements factoriels, ici 4.149, indique la variance totale expliquée par le facteur latent.
+
+-   **Proportion Var (Proportion de la Variance)** : La proportion de la variance totale des items expliquée par le facteur latent, ici 0.346 (ou 34.6%).
+
+Une proportion de variance de 34.6% est respectable pour un modèle unidimensionnel, bien qu'il reste de la variance inexpliquée qui pourrait suggérer la présence de facteurs additionnels.
+
+Interprétation de la Visualisation
+
+-   **Unidimensionalité** : Si la majorité des items ont des chargements factoriels significatifs et similaires, cela suggère l'unidimensionalité.
+
+```{r}
+# Calculer la matrice de corrélation
+cor_matrix <- cor(sociale_data, use = "pairwise.complete.obs")
+
+# Effectuer une analyse factorielle exploratoire avec extraction des valeurs propres
+fa_parallel <- fa.parallel(cor_matrix, fa = "fa", n.obs = nrow(sociale_data))
+
+# Afficher les valeurs propres
+print(fa_parallel$fa.values)
+
+# Tracer les valeurs propres
+plot(fa_parallel$fa.values, type = "b", 
+     xlab = "Number of Factors", 
+     ylab = "Eigenvalue", 
+     main = "Scree Plot")
+
+# Ajouter une ligne horizontale à y = 1 pour faciliter l'interprétation
+abline(h = 1, col = "red", lty = 2)
+
+
+```
+
+#### Indépendance Locale
+
+L'indépendance locale est une hypothèse fondamentale dans l'IRT, qui stipule que, après avoir pris en compte les capacités latentes des répondants, les réponses aux items sont indépendantes les unes des autres.
+
+Pour vérifier l'indépendance locale on utilise les résidus Q3.
+
+### Qu'est-ce que le résidu Q3?
+
+Le résidu Q3 est une mesure de la corrélation résiduelle entre les paires d'items, une fois que les effets de la variable latente ont été pris en compte.
+
+#### Formulation
+
+Pour une paire d'items i et j, le résidu Q3 est défini comme :
+
+comme la cor(ei,ej), ei,ej,sont les résidus pour les items i et j, respectivement. 
+
+### Interprétation du résidu Q3
+
+-   Q3 proche de 0 : Indique que les items sont indépendants localement après avoir pris en compte la variable latente. C'est ce qu'on attend si l'hypothèse d'indépendance locale est respectée.
+
+-   Q3 positif élevé : Suggère une dépendance locale positive, ce qui signifie que les items sont plus similaires que prévu par le modèle IRT, même après avoir pris en compte la variable latente.
+
+-   Q3 négatif élevé : Suggère une dépendance locale négative, ce qui est moins courant mais peut indiquer des biais systématiques.
+
+```{r}
+# Vérification de l'indépendance locale via les résidus Q3
+residuals <- residuals(efa_results, type = "Q3")
+#print(residuals)
+```
+
+La matrice ci-dessus montre les résidus Q3 pour chaque paire d'items 
+
+**Moyenne et Médiane** : La moyenne (-0.067) et la médiane (-0.088) des résidus Q3 sont proches de zéro, ce qui indique que la plupart des paires d'items sont relativement indépendantes après avoir pris en compte la variable latente.
+
+Cependant, certaines valeurs individuelles sont plus élevées (jusqu'à 0.474), ce qui peut indiquer des violations potentielles de l'indépendance locale.
+
+```{r}
+# Convertir les résidus en data frame pour analyse
+residuals_df <- as.data.frame(as.table(residuals))
+colnames(residuals_df) <- c("Item1", "Item2", "Q3")
+# Filtrer les paires avec des valeurs Q3 élevées (généralement > 0.3 ou < -0.3)
+high_Q3_pairs <- subset(residuals_df, abs(Q3) > 0.3)
+high_Q3_pairs
+
+```
+
+Pour DS_B4 et DS_B5 on a un Q3 =0.474 , donc ces deux questions sont liées , quand nous observons la structure de ces deux questions nous avons l'impression d'avoir la même question formulée différement .
+
+DS_B4:Vous savez où vous rendre (parcs, salles de sport, etc.) pour pouvoir pratiquer de l’activité physique régulière
+
+DS_B5:**Vous savez vers qui vous tourner pour pouvoir pratiquer de l’activité physique régulière ( association sportive, famille, amis…)**
+
+Ces items sont fortement corrélés en raison de formulations similaires
+
+```{r}
+# Vérifier les indices d'ajustement
+modelfit_multidim <- M2(efa_results)
+modelfit_multidim
+# Extraire le RMSEA
+rmsea_value <- modelfit_multidim$RMSEA[1]
+print(paste("RMSEA: ", rmsea_value))
+
+# Interpréter le RMSEA
+if (rmsea_value < 0.05) {
+  cat("Le modèle a un très bon ajustement.\n")
+} else if (rmsea_value < 0.08) {
+  cat("Le modèle a un ajustement acceptable.\n")
+} else if (rmsea_value < 0.10) {
+  cat("Le modèle a un ajustement médiocre.\n")
+} else {
+  cat("Le modèle a un mauvais ajustement.\n")
+}
+```
+
+```{r}
+# Effectuer une analyse factorielle exploratoire (EFA) deux facteurs
+efa_results2 <- mirt(sociale_data, 2, exploratory = TRUE)
+
+# Afficher les résultats
+summary(efa_results2)
+
+```
+
+```{r}
+# Afficher les résultats
+summary(efa_results2, suppress =0.3)
+```
+
+### Charges factorielles (F1) :
+
+#### Définition :
+
+Les charges factorielles représentent la force et la direction de la relation entre chaque item et le trait latent sous-jacent.
+
+#### Interprétation :
+
+Des valeurs absolues plus élevées indiquent des relations plus fortes. Par exemple, DS_A2 a une charge factorielle élevée (0,8), indiquant qu'il est fortement lié au trait latent.
+
+### Communalités (h2) :
+
+#### Définition :
+
+Les communalités représentent la proportion de la variance de chaque item qui est expliquée par le trait latent.
+
+#### Des valeurs plus élevées indiquent qu'une plus grande partie de la variance de l'item est expliquée par le trait latent. Par exemple, DS_A2 a une communalité de 0,595, indiquant qu'environ 59,5 % de sa variance est expliquée par le trait latent.
+
+Conclusion : Rectification par rapport au questionnaire. Les deux sous-parties de la dimension sociale sont :
+
+A. Les habiletés relationnelles : DS_A1 à DS_B2
+
+B. Acceptation sociale : DS_B3 à DS_B5
+
+```{r}
+anova(efa_results,efa_results2)
+```
+
+Analyse Factorielle Confirmatoire (CFA)
+
+```{r}
+# Supprimer les cas avec des valeurs manquantes
+sociale_data_complete <- sociale_data[complete.cases(sociale_data), ]
+
+# Définir un modèle multidimensionnel
+mod_multidim <- '
+  F1 = 1-9   # Items DS_A1 à DS_B2
+  F2 = 10-12 # Items DS_B3 à DS_B5
+'
+
+# Ajuster le modèle multidimensionnel
+mod_irt_multidim <- mirt(sociale_data_complete, model = mod_multidim, itemtype = "graded")
+
+# Afficher les résultats du modèle
+summary(mod_irt_multidim)
+
+
+```
+
+Comparons les deux modèles
+
+```{r}
+anova(efa_results,mod_irt_multidim)
+```
+
+Les résultats indiquent que le modèle IRT multidimensionnel (`mod_irt_multidim`) ajuste mieux les données que le modèle EFA (`efa_results`) selon tous les critères de comparaison (AIC, SABIC, HQ, BIC, logLik). Cela confirme que le modèle multidimensionnel est plus approprié pour nos données, capturant efficacement les sous-dimensions identifiées dans la dimension sociale. Cela est également confirmé par le RMSEA .
+
+Le Root Mean Square Error of Approximation (RMSEA) est une statistique couramment utilisée pour évaluer la qualité de l'ajustement des modèles en analyse factorielle.
+
+le test de chi_deux utilisé pour calculer le RMSEA dans l'analyse factorielle compare la matrice de covariance observée à la matrice de covariance estimée par le modèle
+
+### interprétation du Test du Chi-Carré et du RMSEA
+
+-   **Test du Chi_2** : est non significatif (valeur p \> 0.05) indique que la matrice de covariance estimée n'est pas significativement différente de la matrice de covariance observée, suggérant un bon ajustement du modèle. Cependant, ce test est sensible à la taille de l'échantillon et peut être significatif avec de grands échantillons même pour de petits écarts.
+
+-   **RMSEA** : Le RMSEA compense certaines limitations du test du chi-carré en ajustant pour la complexité du modèle et la taille de l'échantillon. Un RMSEA faible (généralement \< 0.05) indique un bon ajustement.
+
+Le RMSEA est un outil précieux pour évaluer l'ajustement global des modèles IRT
+
+```{r}
+
+
+# Vérifier les indices d'ajustement
+modelfit_multidim <- M2(mod_irt_multidim)
+modelfit_multidim
+# Extraire le RMSEA
+rmsea_value <- modelfit_multidim$RMSEA[1]
+print(paste("RMSEA: ", rmsea_value))
+
+# Interpréter le RMSEA
+if (rmsea_value < 0.05) {
+  cat("Le modèle a un très bon ajustement.\n")
+} else if (rmsea_value < 0.08) {
+  cat("Le modèle a un ajustement acceptable.\n")
+} else if (rmsea_value < 0.10) {
+  cat("Le modèle a un ajustement médiocre.\n")
+} else {
+  cat("Le modèle a un mauvais ajustement.\n")
+}
+```
+
+```{r}
+# Calculate and print item fit statistics
+item_fit <- itemfit(mod_irt_multidim)
+print(item_fit)
+```
+
+```{r}
+# Extraire les paramètres des items
+coef(mod_irt_multidim, simplify = TRUE)
+```
+
+Paramètres de Difficulté (d1,d2,d3,d4)
+
+Paramètres de difficulté (ou seuils) pour les différentes catégories de réponse de l'item.
+
+-   Dans le modèle de réponse graduée, chaque item peut avoir plusieurs catégories de réponse (par exemple, de 1 à 5).
+
+-   Chaque d représente un seuil entre deux catégories de réponse successives.
+
+d1:Seuil entre les catégories 1 et 2.
+
+-   Un d1 bas signifie que les personnes avec des capacités latentes relativement faibles ont une probabilité élevée de répondre dans la catégorie 2 ou plus.
+
+d2:Seuil entre les catégories 2 et 3.
+
+-   Un d2 plus élevé indique qu'il faut une capacité latente plus élevée pour passer de la catégorie 2 à la catégorie 3.
+
+...
+
+d4: Seuil entre les catégories 4 et 5.
+
+Le seuil le plus élevé, indiquant la capacité latente nécessaire pour répondre dans la catégorie 5.
+
+#### Items avec une faible discrimination :
+
+Les items avec une faible discrimination (a \< 0.5) sont moins efficaces pour distinguer les individus avec différents niveaux du trait latent. Ces items incluent :
+
+"DS_A1" "DS_A2" "DS_A3" "DS_A4" "DS_A5" "DS_A6" "DS_A7" "DS_B1" "DS_B2" "DS_B3" "DS_B4" "DS_B5"
+
+#### Items avec une forte discrimination :
+
+Les items avec une forte discrimination (a \> 1.5) sont très efficaces pour distinguer entre les individus avec différents niveaux du trait latent. Ces items incluent :
+
+"DS_A2" "DS_A4" "DS_B1" "DS_B4" "DS_B5"
+
+#### Items avec une faible difficulté :
+
+Les items avec une faible difficulté (b \< -2) sont des items plus faciles que la majorité des répondants sont susceptibles d'approuver, même à des niveaux plus bas du trait latent. Ces items incluent :
+
+"DS_A1" "DS_A2" "DS_A4" "DS_A5" "DS_A6" "DS_A7" "DS_B1" "DS_B2" "DS_B3" "DS_B4"
+
+#### Items avec une haute difficulté :
+
+Les items avec une haute difficulté (b \> 2) sont des items plus difficiles que seule une petite proportion de répondants est susceptible d'approuver, même à des niveaux plus élevés du trait latent. Ces items incluent : 0
+
+```{r}
+# Calculate and print item fit statistics
+item_fit <- itemfit(mod_irt_multidim)
+print(item_fit)
+```
+
+### Interprétation des Résultats
+
+1.  **S_X2 (Chi-Carré)** :
+
+    -   Le S_X2 (statistique du chi-carré) mesure l'ajustement du modèle. Une valeur plus faible est souhaitable, mais elle doit être interprétée avec les degrés de liberté et la p-value.
+
+2.  **df.S_X2 (Degrés de Liberté)** :
+
+    -   Le nombre de degrés de liberté (df) reflète la complexité du modèle. Un modèle avec plus de paramètres a généralement plus de degrés de liberté.
+
+3.  **RMSEA.S_X2** :
+
+    -   Le RMSEA mesure l'erreur d'approximation moyenne par degré de liberté. Des valeurs de RMSEA inférieures à 0.05 indiquent un bon ajustement, entre 0.05 et 0.08 un ajustement acceptable, et au-dessus de 0.10 un mauvais ajustement.
+
+4.  **p.S_X2 (P-value)** :
+
+    -   La p-value teste l'hypothèse nulle selon laquelle le modèle ne diffère pas significativement des données observées. Une p-value supérieure à 0.05 indique que le modèle s'ajuste bien aux données.
+
+### Résultats Individuels
+
+-   **DS_A1** :
+
+    -   S_X2 = 69.102, df = 60, RMSEA = 0.020, p-value = 0.197.
+
+    -   **Interprétation** : Bon ajustement global (p \> 0.05, RMSEA \< 0.05).
+
+-   **DS_A2** :
+
+    -   S_X2 = 57.157, df = 44, RMSEA = 0.029, p-value = 0.088.
+
+    -   **Interprétation** : Ajustement acceptable (p \> 0.05, RMSEA \< 0.05).
+
+-   **DS_A3** :
+
+    -   S_X2 = 78.996, df = 58, RMSEA = 0.031, p-value = 0.035.
+
+    -   **Interprétation** : Ajustement acceptable (RMSEA \< 0.05), mais la p-value légèrement inférieure à 0.05 suggère une légère inadéquation.
+
+-   **DS_A4** :
+
+    -   S_X2 = 58.549, df = 53, RMSEA = 0.017, p-value = 0.279.
+
+    -   **Interprétation** : Bon ajustement (p \> 0.05, RMSEA \< 0.05).
+
+-   **DS_A5** :
+
+    -   S_X2 = 71.962, df = 62, RMSEA = 0.021, p-value = 0.181.
+
+    -   **Interprétation** : Bon ajustement (p \> 0.05, RMSEA \< 0.05).
+
+-   **DS_A6** :
+
+    -   S_X2 = 60.291, df = 58, RMSEA = 0.010, p-value = 0.393.
+
+    -   **Interprétation** : Très bon ajustement (p \> 0.05, RMSEA \< 0.05).
+
+-   **DS_A7** :
+
+    -   S_X2 = 50.183, df = 57, RMSEA = 0.000, p-value = 0.727.
+
+    -   **Interprétation** : Excellent ajustement (p \> 0.05, RMSEA \< 0.05).
+
+-   **DS_B1** :
+
+    -   S_X2 = 43.661, df = 49, RMSEA = 0.000, p-value = 0.689.
+
+    -   **Interprétation** : Excellent ajustement (p \> 0.05, RMSEA \< 0.05).
+
+-   **DS_B2** :
+
+    -   S_X2 = 38.695, df = 38, RMSEA = 0.007, p-value = 0.438.
+
+    -   **Interprétation** : Très bon ajustement (p \> 0.05, RMSEA \< 0.05).
+
+-   **DS_B3** :
+
+    -   S_X2 = 80.396, df = 62, RMSEA = 0.028, p-value = 0.058.
+
+    -   **Interprétation** : Ajustement acceptable (p-value légèrement \> 0.05, RMSEA \< 0.05).
+
+### Conclusion
+
+Globalement, les modèles pour chaque item montrent des ajustements généralement bons à très bons, avec des RMSEA faibles et des p-values pour la plupart non significatives, indiquant un bon ajustement aux données. Les quelques p-values proches de 0.05 (comme pour DS_A3) suggèrent une légère inadéquation qui pourrait nécessiter une attention supplémentaire.
+
+Nous allons consider que le modèle j'ajuste bien avec les données .
+
+-   Après avoir ajusté notre modèle IRT,on veut connaître les niveaux de capacités latentes des répondants.
+
+-   La fonction `scores` permet de calculer ces estimations pour chaque individu, en utilisant les réponses aux items et les paramètres du modèle ajusté.
+
+```{r}
+# Calculer les scores des capacités latentes
+scores_latents <- fscores(mod_irt_multidim, method = 'EAP')
+
+# Afficher les scores pour les 6 premiers individus
+head(scores_latents)
+```
+
+**Scores Latents** :
+
+-   Chaque ligne représente un individu.
+
+-   Les colonnes F1 et F2 représentent les scores latents sur les deux facteurs définis dans le modèle.
+
+Les scores peuvent être positifs ou négatifs. Les scores positifs indiquent des niveaux plus élevés du trait latent, tandis que les scores négatifs indiquent des niveaux plus faibles.
+
+```{r}
+# Calcule des statistiques résumées des scores latents
+summary(scores_latents)
+
+```
+
+```{r}
+
+
+# Convertir les scores en data frame pour ggplot
+scores_df <- as.data.frame(scores_latents)
+colnames(scores_df) <- c("F1", "F2")
+
+# Diagramme de dispersion des scores latents
+ggplot(scores_df, aes(x = F1, y = F2)) +
+  geom_point() +
+  labs(title = "Scatter Plot of Latent Scores",
+       x = "Factor 1 (F1)",
+       y = "Factor 2 (F2)") +
+  theme_minimal()
+
+```
+
+```{r}
+# Vérifiez le type de scores_latents
+class(scores_latents)
+# Si ce n'est pas un data frame, le convertir
+if (!is.data.frame(scores_latents)) {
+  scores_latents <- as.data.frame(scores_latents)
+}
+class(scores_latents)
+
+# Test de Shapiro-Wilk pour F1
+shapiro.test(scores_latents$F1)
+
+# Test de Shapiro-Wilk pour F2
+shapiro.test(scores_latents$F2)
+
+```
+
+```{r}
+# Histogramme pour F1
+hist(scores_latents$F1, breaks = 30, main = "Distribution des Scores Latents pour F1", xlab = "Scores Latents F1")
+
+# Histogramme pour F2
+hist(scores_latents$F2, breaks = 30, main = "Distribution des Scores Latents pour F2", xlab = "Scores Latents F2")
+
+# Densité de Kernel pour F1
+plot(density(scores_latents$F1), main = "Densité de Kernel des Scores Latents pour F1", xlab = "Scores Latents F1")
+
+# Densité de Kernel pour F2
+plot(density(scores_latents$F2), main = "Densité de Kernel des Scores Latents pour F2", xlab = "Scores Latents F2")
+
+# Diagramme Q-Q pour F1
+qqnorm(scores_latents$F1)
+qqline(scores_latents$F1, col = "red")
+
+# Diagramme Q-Q pour F2
+qqnorm(scores_latents$F2)
+qqline(scores_latents$F2, col = "red")
+
+```
+
+```{r}
+# Calculer la corrélation entre les scores latents et d'autres variables
+# Exemple avec des variables fictives
+other_data <- data.frame(
+  var1 = rnorm(396),
+  var2 = rnorm(396)
+)
+
+# Ajouter les scores latents au data frame
+analysis_data <- cbind(scores_df, other_data)
+
+# Calculer les corrélations
+correlations <- cor(analysis_data)
+print(correlations)
+
+```
+
+Comme nous avons pu le constater dans l'étude générale de la littératie physique, le questionnaire est impartial. Nous voulons vérifier si cela reste le cas pour la dimension sociale. Pour cela, nous allons examiner les différences en fonction du genre, de l'état de santé (malade/sain) et de l'âge.
+
+```{r}
+subset_social
+```
+
+```{r}
+# Convert relevant columns to factors
+subset_social$Sexe_01 <- as.factor(subset_social$Sexe_01)
+
+# Define the grouping variable
+groups <- subset_social$Sexe_01 
+
+# Fit the more complex multi-group model assuming DIF (with free items)
+dif_model_social <- multipleGroup(sociale_data, 1, group = groups, invariance = c("slopes", "intercepts", "free_items"))
+# Print the model summary to examine gender effects
+summary(dif_model_social)
+
+
+```
+
+```{r}
+# Extract and print the coefficients to see the gender effect on IRT parameters
+coef_gender_effects_social <- coef(dif_model_social, simplify = TRUE)
+print(coef_gender_effects_social)
+```
+
+```{r}
+# Convert AgeGroup to factor
+subset_social$Age <- as.factor(subset_social$Age)
+
+# Define the grouping variable
+groups_age <- subset_social$Age
+
+# Fit the multi-group model with AgeGroup as covariate
+dif_model_age_social <- multipleGroup(sociale_data, 1, group = groups_age, invariance = c("slopes", "intercepts", "free_items"))
+# Print the model summary to examine effects of AgeGroup
+summary(dif_model_age_social)
+
+```
+
+```{r}
+# Extract and print the coefficients to see the effect of AgeGroup on IRT parameters
+coef_effects_age_social <- coef(dif_model_age_social, simplify = TRUE)
+print(coef_effects_age_social)
+ 
+```
+
+```{r}
+# Convert relevant columns to factors
+subset_social$Pb_Physique_01 <- as.factor(subset_social$Pb_Physique_01)
+
+# Define the grouping variable
+groups <- subset_social$Pb_Physique_01
+
+# Fit the more complex multi-group model assuming DIF (with free items)
+dif_model_pb_social <- multipleGroup(sociale_data, 1, group = groups, invariance = c("slopes", "intercepts", "free_items"))
+
+# Print the model summary to examine effects of Pb_Physique_01
+summary(dif_model_pb_social)
+```
+
+```{r}
+# Extract and print the coefficients to see the effect of Pb_Physique_01 on IRT parameters
+coef_effects_pb_social <- coef(dif_model_pb_social, simplify = TRUE)
+print(coef_effects_pb_social)
+```
+
+### Conclusions clés pour les trois variables :
+
+#### Paramètres de discrimination (a1) :
+
+Les paramètres de discrimination (a1) indiquent dans quelle mesure chaque item différencie bien les individus ayant différents niveaux du trait latent. Ces paramètres sont cohérents dans tous les groupes pour toutes les variables, ce qui suggère qu'il n'y a pas de DIF significatif en termes de discrimination des items.
+
+#### Paramètres de difficulté (d1, d2, d3, etc.) :
+
+Les paramètres de difficulté indiquent les seuils auxquels les répondants passent d'une catégorie de réponse à une autre. Ces paramètres sont également cohérents dans les deux groupes pour toutes les variables, indiquant qu'il n'y a pas de DIF significatif en termes de difficulté des items.
+
+#### Valeurs NA :
+
+Certaines entrées dans les paramètres de difficulté ont des valeurs NA. Cela se produit parce que certains items ont moins de catégories de réponse que d'autres. Par exemple, les items avec seulement deux catégories de réponse (items binaires) n'ont pas de seuils multiples, et donc, les paramètres de difficulté plus élevés (d2, d3, etc.) ne sont pas applicables et sont représentés par NA. Cela est typique dans les modèles IRT où le nombre de seuils varie en fonction du nombre de catégories de réponse pour chaque item.
+
+#### Cohérence entre les groupes :
+
+La cohérence des paramètres de discrimination et de difficulté entre les groupes indique que les items fonctionnent de manière similaire, que les répondants aient des problèmes physiques, soient jeunes ou âgés, hommes ou femmes. Cela suggère qu'il n'y a pas de DIF significatif pour les items basés sur la présence de problèmes physiques.
+
+#### Conclusion
+
+Cela indique que l'instrument de mesure est impartial et fiable pour tous les groupes et toutes les variables, garantissant que le trait latent est mesuré de manière cohérente.
+
+Utilisation du modèle MHRM
+
+```{r}
+mod_irt_multidimmh <- mirt(sociale_data, 2, method = "MHRM", 
+                   technical = list(NCYCLES = 1000, gain = 0.001))
+
+```
+
+```{r}
+# Vérifier les indices d'ajustement
+modelfit_multidim2 <- M2(mod_irt_multidimmh)
+modelfit_multidim2
+# Extraire le RMSEA
+rmsea_value <- modelfit_multidim2$RMSEA[1]
+print(paste("RMSEA: ", rmsea_value))
+
+# Interpréter le RMSEA
+if (rmsea_value < 0.05) {
+  cat("Le modèle a un très bon ajustement.\n")
+} else if (rmsea_value < 0.08) {
+  cat("Le modèle a un ajustement acceptable.\n")
+} else if (rmsea_value < 0.10) {
+  cat("Le modèle a un ajustement médiocre.\n")
+} else {
+  cat("Le modèle a un mauvais ajustement.\n")
+}
+```
+
+```{r}
+anova(mod_irt_multidim,mod_irt_multidimmh)
+```
+
+```{r}
+summary(mod_irt_multidimmh,suppress =0.3)
+```
+
+```{r}
+
+
+# Extraire les coefficients de discrimination et les seuils de difficulté
+item_params <- coef(mod_irt_multidim, simplify = TRUE)$items
+item_params <- as.data.frame(item_params)
+
+# Tracer les coefficients de discrimination
+ggplot(item_params, aes(x = rownames(item_params), y = a1, fill = "Dimension 1")) +
+  geom_bar(stat = "identity") +
+  labs(title = "Coefficients de Discrimination des Items (Dimension 1)",
+       x = "Items",
+       y = "Coefficient de Discrimination") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+
+```
+
+1.  **Bonne Discrimination (**1.35≤a\<1.70):
+
+    -   Les items avec des coefficients de discrimination dans cette plage sont considérés comme ayant une bonne capacité de discrimination. Ils fournissent une quantité d'information substantielle sur le trait latent et sont généralement souhaitables dans un test.
+
+2.  **Très Bonne Discrimination (**≥1.70):
+
+    -   Les items avec des coefficients de discrimination supérieurs à 1,70 ont une très bonne capacité à différencier entre les individus ayant des niveaux différents du trait latent. Ils sont très informatifs, mais comme mentionné précédemment, ils peuvent aussi être plus sensibles aux erreurs de réponse.
+
+-   **Équilibre des Items**:
+
+    -   Dans un test bien conçu, il est souhaitable d'avoir un mélange d'items avec différentes capacités de discrimination pour couvrir un large éventail de niveaux de trait latent.
+
+-   **Analyse de Test**:
+
+    -   Lors de l'analyse d'un test, les items avec des coefficients de discrimination très bas peuvent être révisés ou supprimés, tandis que les items avec des coefficients très élevés doivent être utilisés avec prudence pour éviter des effets indésirables comme une sensibilité excessive aux erreurs de réponse.
+
+```{r}
+
+efa_results <- mirt(sociale_data_complete, 1, exploratory = TRUE)
+
+
+# Vérifier les indices d'ajustement
+modelfit_multidim2 <- M2(efa_results)
+modelfit_multidim2
+# Extraire le RMSEA
+rmsea_value <- modelfit_multidim2$RMSEA[1]
+print(paste("RMSEA: ", rmsea_value))
+
+# Interpréter le RMSEA
+if (rmsea_value < 0.05) {
+  cat("Le modèle a un très bon ajustement.\n")
+} else if (rmsea_value < 0.08) {
+  cat("Le modèle a un ajustement acceptable.\n")
+} else if (rmsea_value < 0.10) {
+  cat("Le modèle a un ajustement médiocre.\n")
+} else {
+  cat("Le modèle a un mauvais ajustement.\n")
+}
+```
+
+Donc nous pouvons conclure de l'existence d'une sous dimension à la dimension sociale .cela signifie que les items mesurent plusieurs facteurs latents distincts.
+
+La découverte de sous-dimensions dans les données signifie que l'hypothèse d'unidimensionalité n'est plus valide pour la dimension sociale. 
+
+On a bien deux facteurs
+
+Analyse Factorielle Confirmatoire (CFA)
+
+```{r}
+mod_irt_multidimmh
+```
+
+```{r}
+coef(mod_irt_multidimmh, IRTpars = TRUE, simplify = TRUE)
+```
+
+```{r}
+# Vérifier les indices d'ajustement pour chaque item
+item_fitss <- itemfit(mod_irt_multidimmh)
+print(item_fitss)
+
+```
+
+Bien que que le model MHRM fit mieux avec mes données , la comparaison par l'anova nous dit que le modèle bicfactor est meilleur avec un RMSEA =
+
+```         
+"RMSEA:  0.0646914821662773"
+Le modèle a un ajustement acceptable.
+```
+
+Mais pour ce modèle les indices d'ajustement nous indiquent que la question DS_A4 est mal ajustéé
