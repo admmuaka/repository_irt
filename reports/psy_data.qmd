@@ -1,16 +1,10 @@
 ---
-title: "psy_data"
+title: "Psychological Dimension"
 format: html
 editor: visual
 ---
 
-## Quarto
-
-Quarto enables you to weave together content and executable code into a finished document. To learn more about Quarto see <https://quarto.org>.
-
-## Running Code
-
-When you click the **Render** button a document will be generated that includes both content and the output of embedded code. You can embed code like this:
+#Psychological dimension
 
 ```{r}
 # Charger les packages nécessaires
@@ -27,12 +21,10 @@ library(ggplot2)
 library(dplyr)
 ```
 
-You can add options to executable code like this
+
 
 ```{r}
-#file_path <- "/Users/admmuaka/Documents/Master_1/stage/IRT/tableau_fusionne2.xlsx"
-#data <- read_excel(file_path, sheet = "Sheet1")
-#data
+
 
 file_path <- "/Users/admmuaka/Documents/Master_1/stage/IRT/IRT_data.xlsx"
 data <- read_excel(file_path, sheet = "Sheet1")
@@ -45,12 +37,10 @@ subset_psy
 
 ```
 
-The `echo: false` option disables the printing of code (only output is displayed).
+
 
 ```{r}
 # Sélection des colonnes pertinentes pour chaque dimension
-#psychologique_data <- select_columns_between(data, "DPSY A1", "TOTAL Psy/100")
-#psychologique_data
 
 psychologique_data <- select_columns_between(data, "DPSY_A1", "DPSY_C4")
 
