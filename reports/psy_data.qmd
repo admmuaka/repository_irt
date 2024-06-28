@@ -1,0 +1,352 @@
+---
+title: "psy_data"
+format: html
+editor: visual
+---
+
+## Quarto
+
+Quarto enables you to weave together content and executable code into a finished document. To learn more about Quarto see <https://quarto.org>.
+
+## Running Code
+
+When you click the **Render** button a document will be generated that includes both content and the output of embedded code. You can embed code like this:
+
+```{r}
+# Charger les packages nécessaires
+#install.packages(c("readxl", "psych", "lavaan", "GPArotation"))
+#install.packages("mirt")
+library(readxl)
+library(psych)
+library(lavaan)
+library(GPArotation)
+library(mirt)
+#install.packages("semPlot")
+library(semPlot)
+library(ggplot2)
+library(dplyr)
+```
+
+You can add options to executable code like this
+
+```{r}
+#file_path <- "/Users/admmuaka/Documents/Master_1/stage/IRT/tableau_fusionne2.xlsx"
+#data <- read_excel(file_path, sheet = "Sheet1")
+#data
+
+file_path <- "/Users/admmuaka/Documents/Master_1/stage/IRT/IRT_data.xlsx"
+data <- read_excel(file_path, sheet = "Sheet1")
+data
+
+file_path <- "/Users/admmuaka/Documents/Master_1/stage/IRT/subset_data.xlsx"
+subset_psy<- read_excel(file_path, sheet = "Sheet1")
+subset_psy
+
+
+```
+
+The `echo: false` option disables the printing of code (only output is displayed).
+
+```{r}
+# Sélection des colonnes pertinentes pour chaque dimension
+#psychologique_data <- select_columns_between(data, "DPSY A1", "TOTAL Psy/100")
+#psychologique_data
+
+psychologique_data <- select_columns_between(data, "DPSY_A1", "DPSY_C4")
+
+psychologique_data 
+dim(psychologique_data)
+```
+
+Vérification des Conditions IRT
+
+1.  **Unidimensionalité** : L'analyse exploratoire et factorielle
+
+2.  **Indépendance Locale** : On va utiliser les résidus Q3 pour vérifier cela.
+
+3.  **Monotonicité** : Tracez les courbes de caractéristiques des items (ICC).
+
+```{r}
+#  Analyse factorielle exploratoire (EFA)
+efa_resultsps <- mirt(psychologique_data, 1, exploratory = TRUE)
+
+# Afficher les résultats
+summary(efa_resultsps)
+
+# Extraire les chargements factoriels
+loadings <- mod2values(efa_resultsps)
+loadings_df <- subset(loadings, grepl("a1", name))
+
+# Convertir les chargements en data frame pour ggplot
+loadings_df$item <- loadings_df$item
+loadings_df$loading <- loadings_df$value
+loadings_df <- loadings_df[order(loadings_df$loading), ]
+
+# Plotter les chargements factoriels avec ggplot2
+ggplot(loadings_df, aes(x = reorder(item, loading), y = loading)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  labs(title = "Factor Loadings from EFA",
+       x = "Items",
+       y = "Loadings") +
+  theme_minimal()
+
+
+
+
+
+```
+
+-   Les items ont des chargements factoriels élevés (supérieurs à 0.3), indiquant qu'ils sont fortement corrélés avec le facteur latent.
+
+    mais nous pouvons également remarquer que certaines questions ont de chargement factoriel negatives , mais cela peut être dû à une rotation car certaines rotations obliques permettent aux facteurs d'être corrélés
+
+    Cela peut être dû à une structure complexe des données .
+
+-   Une charge factorielle négative indique que l'item a une relation négative avec le facteur sous-jacent qu'il est censé mesurer. Cela peut être difficile à interpréter et peut suggérer que l'item ne mesure pas ce que vous aviez prévu.
+
+L'indépendance locale , la probabilité de repondre correctement à un item ne dépend pas des réponses aux autres items.
+
+Les résidus Q3 représentent l'écart entre la probabilité prédite de réponse correcte à un item et la proba observée
+
+```{r}
+# Suppression des questions spécifiques en utilisant la sélection de colonnes de base R
+psychologique_data <- psychologique_data[, !(names(psychologique_data) %in% c( "DPSY_B2","DPSY_C4","DPSY__A5","DPSY_A1"))]
+
+# Afficher les premières lignes du dataframe modifié
+head(psychologique_data)
+
+```
+
+```{r}
+
+# Définir le score maximal
+max_score <- 7
+
+# Inverser les scores de la question DPSY_A2
+psychologique_data$DPSY_A2 <- max_score + 1 - psychologique_data$DPSY_A2
+
+# Afficher les premières lignes de la colonne DPSY_A2 après l'inversion
+#print(psychologique_data$DPSY_A2)
+```
+
+```{r}
+#  Analyse factorielle exploratoire (EFA)
+efa_resultsps <- mirt(psychologique_data, 1, exploratory = TRUE)
+
+# Afficher les résultats
+summary(efa_resultsps)
+
+# Extraire les chargements factoriels
+loadings <- mod2values(efa_resultsps)
+loadings_df <- subset(loadings, grepl("a1", name))
+
+# Convertir les chargements en data frame pour ggplot
+loadings_df$item <- loadings_df$item
+loadings_df$loading <- loadings_df$value
+loadings_df <- loadings_df[order(loadings_df$loading), ]
+
+# Plotter les chargements factoriels avec ggplot2
+ggplot(loadings_df, aes(x = reorder(item, loading), y = loading)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  labs(title = "Factor Loadings from EFA",
+       x = "Items",
+       y = "Loadings") +
+  theme_minimal()
+
+
+
+
+```
+
+```{r}
+# Calculer la matrice de corrélation
+cor_matrix <- cor(psychologique_data, use = "pairwise.complete.obs")
+# Effectuer une analyse parallèle
+fa_parallel <- fa.parallel(cor_matrix, fa = "fa", n.obs = nrow(psychologique_data))
+
+# Afficher les valeurs propres
+print(fa_parallel$fa.values)
+
+# Tracer les valeurs propres (Scree Plot)
+plot(fa_parallel$fa.values, type = "b", 
+     xlab = "Number of Factors", 
+     ylab = "Eigenvalue", 
+     main = "Scree Plot")
+
+# Ajouter une ligne horizontale à y = 1 pour faciliter l'interprétation (Critère de Kaiser)
+abline(h = 1, col = "red", lty = 2)
+```
+
+```{r}
+# Vérification de l'indépendance locale via les résidus Q3
+residualsps <- residuals(efa_resultsps, type = "Q3")
+#print(residuals)
+```
+
+```{r}
+# Convertir les résidus en data frame pour analyse
+residuals_dfps <- as.data.frame(as.table(residualsps))
+colnames(residuals_dfps) <- c("Item1", "Item2", "Q3")
+# Filtrer les paires avec des valeurs Q3 élevées (généralement > 0.3 ou < -0.3)
+high_Q3_pairsps <- subset(residuals_dfps, abs(Q3) > 0.3)
+high_Q3_pairsps
+```
+
+```{r}
+# Effectuer une analyse factorielle exploratoire (EFA) deux facteurs
+efa_resultsps2 <- mirt(psychologique_data, 2, exploratory = TRUE)
+
+# Afficher les résultats
+summary(efa_resultsps2)
+
+
+```
+
+Les items avec une charge factorielle supérieure ou égale à 0.3 pour les facteurs F1 et F2 sont :
+
+```{r}
+# Afficher les résultats
+summary(efa_resultsps2, suppress =0.3)
+
+```
+
+```{r}
+anova(efa_resultsps,efa_resultsps2)
+```
+
+Passons au modèle à trois facteurs
+
+**Rapport participants / nombre de paramètres:** Un rapport inférieur à 10 est souvent considéré comme un risque de surajustement. Dans notre cas, le rapport est de 396 / (3 facteurs \* 10 questions) ≈ 13,. Ce ratio est proche de la limite et pourrait indiquer un risque modéré de surajustement.
+
+```{r}
+# Effectuer une analyse factorielle exploratoire (EFA) deux facteurs
+efa_resultsps3 <- mirt(psychologique_data, 3, exploratory = TRUE)
+
+# Afficher les résultats
+summary(efa_resultsps3,suppress =0.3)
+```
+
+```{r}
+anova(efa_resultsps,efa_resultsps3)
+anova(efa_resultsps2,efa_resultsps3)
+```
+
+choix : Modèle 3.
+
+Analyse Factorielle Confirmatoire (CFA)
+
+```{r}
+# Ajuster le modèle multidimensionnel
+mod_irt_multidimps <- mirt(psychologique_data , 3)
+
+# Afficher les résultats du modèle
+summary(mod_irt_multidimps)
+```
+
+**F1** : Le facteur 1 semble être principalement associé aux items DPSY_B1, DPSY_B3 et DPSY_B4, avec des chargements élevés (supérieurs à 0.8).
+
+**F2** : Le facteur 2 est principalement associé aux items DPSY_C1 et DPSY_C2, DPSY_C3 avec des chargements élevés (supérieurs à 0.8).
+
+F3 :Le facteur 2 est principalement associé aux items DPSY_A3 ,DPSY_A4 ,DPSY_A2
+
+Les valeurs de communalités (h2) indiquent la proportion de variance d'un item expliquée par les facteurs. Des valeurs plus élevées indiquent une meilleure explication par les facteurs.
+
+Rotated SS loadings: (2.255+ 2.526 +1.853)/10 =0,6634 soit 66,34% donc les trois facteurs expliquent environ 66,34% de la variance totale.
+
+Les indices d'ajustement montrent que le modèle tridimensionnel `mod_irt_multidimps` a une excellente qualité d'ajustement global aux données :
+
+```{r}
+# Calculate and print item fit statistics
+item_fit <- itemfit(mod_irt_multidimps)
+print(item_fit)
+
+```
+
+```{r}
+# Extraire les paramètres des items
+coef(mod_irt_multidimps,simplify = TRUE)
+
+```
+
+Différence entre les groupes
+
+```{r}
+# Convert relevant columns to factors
+subset_psy$Sexe_01 <- as.factor(subset_psy$Sexe_01)
+
+# Define the grouping variable
+groups <- subset_psy$Sexe_01 
+
+# Fit the more complex multi-group model assuming DIF (with free items)
+dif_model_psy <- multipleGroup(psychologique_data, 3, group = groups, invariance = c("slopes", "intercepts", "free_items"))
+# Print the model summary to examine gender effects
+summary(dif_model_psy)
+
+# Extract and print the coefficients to see the gender effect on IRT parameters
+coef_gender_effects_psy <- coef(dif_model_psy, simplify = TRUE)
+print(coef_gender_effects_psy)
+
+
+
+```
+
+```{r}
+
+# Convert AgeGroup to factor
+subset_psy$Age <- as.factor(subset_psy$Age)
+
+# Define the grouping variable
+groups_age <- subset_psy$Age
+
+# Fit the multi-group model with AgeGroup as covariate
+dif_model_age_psy <- multipleGroup(psychologique_data, 1, group = groups_age, invariance = c("slopes", "intercepts", "free_items"))
+# Print the model summary to examine effects of AgeGroup
+summary(dif_model_age_psy)
+
+# Extract and print the coefficients to see the effect of AgeGroup on IRT parameters
+coef_effects_age_psy <- coef(dif_model_age_psy, simplify = TRUE)
+print(coef_effects_age_psy)
+ 
+```
+
+```{r}
+# Convert relevant columns to factors
+subset_psy$Pb_Physique_01 <- as.factor(subset_psy$Pb_Physique_01)
+
+# Define the grouping variable
+groups <- subset_psy$Pb_Physique_01
+
+# Fit the more complex multi-group model assuming DIF (with free items)
+dif_model_pb_psy <- multipleGroup(psychologique_data, 3, group = groups, invariance = c("slopes", "intercepts", "free_items"))
+
+# Print the model summary to examine effects of Pb_Physique_01
+summary(dif_model_pb_psy)
+
+# Extract and print the coefficients to see the effect of Pb_Physique_01 on IRT parameters
+coef_effects_pb_psy <- coef(dif_model_pb_psy, simplify = TRUE)
+print(coef_effects_pb_psy)
+```
+
+### Conclusions clés pour les trois variables :
+
+#### Paramètres de discrimination (a1) :
+
+Les paramètres de discrimination (a1) indiquent dans quelle mesure chaque item différencie bien les individus ayant différents niveaux du trait latent. Ces paramètres sont cohérents dans tous les groupes pour toutes les variables, ce qui suggère qu'il n'y a pas de DIF significatif en termes de discrimination des items.
+
+#### Paramètres de difficulté (d1, d2, d3, etc.) :
+
+Les paramètres de difficulté indiquent les seuils auxquels les répondants passent d'une catégorie de réponse à une autre. Ces paramètres sont également cohérents dans les deux groupes pour toutes les variables, indiquant qu'il n'y a pas de DIF significatif en termes de difficulté des items.
+
+#### Valeurs NA :
+
+Certaines entrées dans les paramètres de difficulté ont des valeurs NA. Cela se produit parce que certains items ont moins de catégories de réponse que d'autres. Par exemple, les items avec seulement deux catégories de réponse (items binaires) n'ont pas de seuils multiples, et donc, les paramètres de difficulté plus élevés (d2, d3, etc.) ne sont pas applicables et sont représentés par NA. Cela est typique dans les modèles IRT où le nombre de seuils varie en fonction du nombre de catégories de réponse pour chaque item.
+
+#### Cohérence entre les groupes :
+
+La cohérence des paramètres de discrimination et de difficulté entre les groupes indique que les items fonctionnent de manière similaire, que les répondants aient des problèmes physiques, soient jeunes ou âgés, hommes ou femmes. Cela suggère qu'il n'y a pas de DIF significatif pour les items basés sur la présence de problèmes physiques.
+
+#### Conclusion
+
+Cela indique que l'instrument de mesure est impartial et fiable pour tous les groupes et toutes les variables, garantissant que le trait latent est mesuré de manière cohérente.
