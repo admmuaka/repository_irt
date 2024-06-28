@@ -20,8 +20,6 @@ library(dplyr)
 ```
 
 ```{r}
-#file_path <- "/Users/admmuaka/Documents/Master_1/stage/IRT/tableau_fusionne2.xlsx"
-#data <- read_excel(file_path, sheet = "Sheet1")
 
 file_path <- "/Users/admmuaka/Documents/Master_1/stage/IRT/IRT_data.xlsx"
 data <- read_excel(file_path, sheet = "Sheet1")
