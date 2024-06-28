@@ -541,37 +541,6 @@ print(setNames(high_difficulty_items, high_difficulty_names))
 
 #### Paramètres de Difficulté pour différentes catégories de réponse (b1, b2, b3, b4, b5, b6, b7) :
 
-#### Items avec une faible discrimination :
-
-Les items avec une faible discrimination (a \< 0.5) sont moins efficaces pour distinguer entre les individus avec différents niveaux du trait latent. Ces items incluent :
-
-### Paramètre de Discrimination (a):
-
-#### Paramètres de Difficulté pour différentes catégories de réponse (b1, b2, b3, b4, b5, b6, b7) :
-
-#### Items avec une faible discrimination :
-
-Les items avec une faible discrimination (a \< 0.5) sont moins efficaces pour distinguer entre les individus avec différents niveaux du trait latent. Ces items incluent :
-
-Q6, Q7, Q12, Q13, DPSY_A1, DPSY_A2, DPSY\_\_A5, DPSY_B2 ,DPSY_C4, DS_A1 ,DS_A2, DS_A5 ,DS_B2,DC_B3, DC_C5, DC_C6, DC_C8
-
-#### Items avec une forte discrimination :
-
-Les items avec une forte discrimination (a \> 1.5) sont très efficaces pour distinguer entre les individus avec différents niveaux du trait latent. Ces items incluent :
-
-Q4, DPSY_A3, DPSY_B1 ,DPSY_B3
-
-#### Items avec une faible difficulté :
-
-Les items avec une faible difficulté (b \< -2) sont des items plus faciles que la majorité des répondants sont susceptibles d'approuver, même à des niveaux plus bas du trait latent. Ces items incluent :
-
-Q6 ,Q7, Q12, Q13, DPSY_A1, DPSY_A2, DPSY\_\_A5 ,DPSY_B2, DPSY_C4 ,DS_A1 ,DS_A2 ,DS_A5 ,DS_B2 ,,DC_B3 ,DC_C5 ,DC_C6, DC_C8
-
-#### Items avec une haute difficulté :
-
-Les items avec une haute difficulté (b \> 2) sont des items plus difficiles que seule une petite proportion de répondants est susceptible d'approuver, même à des niveaux plus élevés du trait latent. Ces items incluent :
-
-Q6 ,Q11
 
 ```{r}
 # Calculer les scores des capacités latentes
