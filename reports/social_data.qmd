@@ -22,10 +22,6 @@ library(dplyr)
 You can add options to executable code like this
 
 ```{r}
-#file_path <- "/Users/admmuaka/Documents/Master_1/stage/IRT/tableau_fusionne2.xlsx"
-#data <- read_excel(file_path, sheet = "Sheet1")
-
-#data
 
 file_path <- "/Users/admmuaka/Documents/Master_1/stage/IRT/IRT_data.xlsx"
 data <- read_excel(file_path, sheet = "Sheet1")
@@ -39,13 +35,6 @@ subset_data
 ```
 
 ```{r}
-#sociale_data <- data %>% select(DS_A1:DS_B5,`Sexe(0,1)`,`Pb_Physique_(0,1)` )
-#sociale_data <-na.omit(sociale_data)
-#sociale_data <- sociale_data %>%
- # rename(Sexe = `Sexe(0,1)`,Pb_Physique_01 =`Pb_Physique_(0,1)`)
-#sociale_data$Sexe <- as.numeric(sociale_data$Sexe)
-
-#sociale_data
 
 sociale_data <- data[, c("DS_A1", "DS_A2", "DS_A3", "DS_A4", "DS_A5", "DS_A6", 
                   "DS_A7", "DS_B1", "DS_B2", "DS_B3", "DS_B4", "DS_B5"
@@ -363,27 +352,6 @@ d4: Seuil entre les catégories 4 et 5.
 
 Le seuil le plus élevé, indiquant la capacité latente nécessaire pour répondre dans la catégorie 5.
 
-#### Items avec une faible discrimination :
-
-Les items avec une faible discrimination (a \< 0.5) sont moins efficaces pour distinguer les individus avec différents niveaux du trait latent. Ces items incluent :
-
-"DS_A1" "DS_A2" "DS_A3" "DS_A4" "DS_A5" "DS_A6" "DS_A7" "DS_B1" "DS_B2" "DS_B3" "DS_B4" "DS_B5"
-
-#### Items avec une forte discrimination :
-
-Les items avec une forte discrimination (a \> 1.5) sont très efficaces pour distinguer entre les individus avec différents niveaux du trait latent. Ces items incluent :
-
-"DS_A2" "DS_A4" "DS_B1" "DS_B4" "DS_B5"
-
-#### Items avec une faible difficulté :
-
-Les items avec une faible difficulté (b \< -2) sont des items plus faciles que la majorité des répondants sont susceptibles d'approuver, même à des niveaux plus bas du trait latent. Ces items incluent :
-
-"DS_A1" "DS_A2" "DS_A4" "DS_A5" "DS_A6" "DS_A7" "DS_B1" "DS_B2" "DS_B3" "DS_B4"
-
-#### Items avec une haute difficulté :
-
-Les items avec une haute difficulté (b \> 2) sont des items plus difficiles que seule une petite proportion de répondants est susceptible d'approuver, même à des niveaux plus élevés du trait latent. Ces items incluent : 0
 
 ```{r}
 # Calculate and print item fit statistics
@@ -409,67 +377,6 @@ print(item_fit)
 
     -   La p-value teste l'hypothèse nulle selon laquelle le modèle ne diffère pas significativement des données observées. Une p-value supérieure à 0.05 indique que le modèle s'ajuste bien aux données.
 
-### Résultats Individuels
-
--   **DS_A1** :
-
-    -   S_X2 = 69.102, df = 60, RMSEA = 0.020, p-value = 0.197.
-
-    -   **Interprétation** : Bon ajustement global (p \> 0.05, RMSEA \< 0.05).
-
--   **DS_A2** :
-
-    -   S_X2 = 57.157, df = 44, RMSEA = 0.029, p-value = 0.088.
-
-    -   **Interprétation** : Ajustement acceptable (p \> 0.05, RMSEA \< 0.05).
-
--   **DS_A3** :
-
-    -   S_X2 = 78.996, df = 58, RMSEA = 0.031, p-value = 0.035.
-
-    -   **Interprétation** : Ajustement acceptable (RMSEA \< 0.05), mais la p-value légèrement inférieure à 0.05 suggère une légère inadéquation.
-
--   **DS_A4** :
-
-    -   S_X2 = 58.549, df = 53, RMSEA = 0.017, p-value = 0.279.
-
-    -   **Interprétation** : Bon ajustement (p \> 0.05, RMSEA \< 0.05).
-
--   **DS_A5** :
-
-    -   S_X2 = 71.962, df = 62, RMSEA = 0.021, p-value = 0.181.
-
-    -   **Interprétation** : Bon ajustement (p \> 0.05, RMSEA \< 0.05).
-
--   **DS_A6** :
-
-    -   S_X2 = 60.291, df = 58, RMSEA = 0.010, p-value = 0.393.
-
-    -   **Interprétation** : Très bon ajustement (p \> 0.05, RMSEA \< 0.05).
-
--   **DS_A7** :
-
-    -   S_X2 = 50.183, df = 57, RMSEA = 0.000, p-value = 0.727.
-
-    -   **Interprétation** : Excellent ajustement (p \> 0.05, RMSEA \< 0.05).
-
--   **DS_B1** :
-
-    -   S_X2 = 43.661, df = 49, RMSEA = 0.000, p-value = 0.689.
-
-    -   **Interprétation** : Excellent ajustement (p \> 0.05, RMSEA \< 0.05).
-
--   **DS_B2** :
-
-    -   S_X2 = 38.695, df = 38, RMSEA = 0.007, p-value = 0.438.
-
-    -   **Interprétation** : Très bon ajustement (p \> 0.05, RMSEA \< 0.05).
-
--   **DS_B3** :
-
-    -   S_X2 = 80.396, df = 62, RMSEA = 0.028, p-value = 0.058.
-
-    -   **Interprétation** : Ajustement acceptable (p-value légèrement \> 0.05, RMSEA \< 0.05).
 
 ### Conclusion
 
@@ -560,22 +467,7 @@ qqline(scores_latents$F2, col = "red")
 
 ```
 
-```{r}
-# Calculer la corrélation entre les scores latents et d'autres variables
-# Exemple avec des variables fictives
-other_data <- data.frame(
-  var1 = rnorm(396),
-  var2 = rnorm(396)
-)
 
-# Ajouter les scores latents au data frame
-analysis_data <- cbind(scores_df, other_data)
-
-# Calculer les corrélations
-correlations <- cor(analysis_data)
-print(correlations)
-
-```
 
 Comme nous avons pu le constater dans l'étude générale de la littératie physique, le questionnaire est impartial. Nous voulons vérifier si cela reste le cas pour la dimension sociale. Pour cela, nous allons examiner les différences en fonction du genre, de l'état de santé (malade/sain) et de l'âge.
 
@@ -667,128 +559,3 @@ La cohérence des paramètres de discrimination et de difficulté entre les grou
 
 Cela indique que l'instrument de mesure est impartial et fiable pour tous les groupes et toutes les variables, garantissant que le trait latent est mesuré de manière cohérente.
 
-Utilisation du modèle MHRM
-
-```{r}
-mod_irt_multidimmh <- mirt(sociale_data, 2, method = "MHRM", 
-                   technical = list(NCYCLES = 1000, gain = 0.001))
-
-```
-
-```{r}
-# Vérifier les indices d'ajustement
-modelfit_multidim2 <- M2(mod_irt_multidimmh)
-modelfit_multidim2
-# Extraire le RMSEA
-rmsea_value <- modelfit_multidim2$RMSEA[1]
-print(paste("RMSEA: ", rmsea_value))
-
-# Interpréter le RMSEA
-if (rmsea_value < 0.05) {
-  cat("Le modèle a un très bon ajustement.\n")
-} else if (rmsea_value < 0.08) {
-  cat("Le modèle a un ajustement acceptable.\n")
-} else if (rmsea_value < 0.10) {
-  cat("Le modèle a un ajustement médiocre.\n")
-} else {
-  cat("Le modèle a un mauvais ajustement.\n")
-}
-```
-
-```{r}
-anova(mod_irt_multidim,mod_irt_multidimmh)
-```
-
-```{r}
-summary(mod_irt_multidimmh,suppress =0.3)
-```
-
-```{r}
-
-
-# Extraire les coefficients de discrimination et les seuils de difficulté
-item_params <- coef(mod_irt_multidim, simplify = TRUE)$items
-item_params <- as.data.frame(item_params)
-
-# Tracer les coefficients de discrimination
-ggplot(item_params, aes(x = rownames(item_params), y = a1, fill = "Dimension 1")) +
-  geom_bar(stat = "identity") +
-  labs(title = "Coefficients de Discrimination des Items (Dimension 1)",
-       x = "Items",
-       y = "Coefficient de Discrimination") +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1))
-
-
-```
-
-1.  **Bonne Discrimination (**1.35≤a\<1.70):
-
-    -   Les items avec des coefficients de discrimination dans cette plage sont considérés comme ayant une bonne capacité de discrimination. Ils fournissent une quantité d'information substantielle sur le trait latent et sont généralement souhaitables dans un test.
-
-2.  **Très Bonne Discrimination (**≥1.70):
-
-    -   Les items avec des coefficients de discrimination supérieurs à 1,70 ont une très bonne capacité à différencier entre les individus ayant des niveaux différents du trait latent. Ils sont très informatifs, mais comme mentionné précédemment, ils peuvent aussi être plus sensibles aux erreurs de réponse.
-
--   **Équilibre des Items**:
-
-    -   Dans un test bien conçu, il est souhaitable d'avoir un mélange d'items avec différentes capacités de discrimination pour couvrir un large éventail de niveaux de trait latent.
-
--   **Analyse de Test**:
-
-    -   Lors de l'analyse d'un test, les items avec des coefficients de discrimination très bas peuvent être révisés ou supprimés, tandis que les items avec des coefficients très élevés doivent être utilisés avec prudence pour éviter des effets indésirables comme une sensibilité excessive aux erreurs de réponse.
-
-```{r}
-
-efa_results <- mirt(sociale_data_complete, 1, exploratory = TRUE)
-
-
-# Vérifier les indices d'ajustement
-modelfit_multidim2 <- M2(efa_results)
-modelfit_multidim2
-# Extraire le RMSEA
-rmsea_value <- modelfit_multidim2$RMSEA[1]
-print(paste("RMSEA: ", rmsea_value))
-
-# Interpréter le RMSEA
-if (rmsea_value < 0.05) {
-  cat("Le modèle a un très bon ajustement.\n")
-} else if (rmsea_value < 0.08) {
-  cat("Le modèle a un ajustement acceptable.\n")
-} else if (rmsea_value < 0.10) {
-  cat("Le modèle a un ajustement médiocre.\n")
-} else {
-  cat("Le modèle a un mauvais ajustement.\n")
-}
-```
-
-Donc nous pouvons conclure de l'existence d'une sous dimension à la dimension sociale .cela signifie que les items mesurent plusieurs facteurs latents distincts.
-
-La découverte de sous-dimensions dans les données signifie que l'hypothèse d'unidimensionalité n'est plus valide pour la dimension sociale. 
-
-On a bien deux facteurs
-
-Analyse Factorielle Confirmatoire (CFA)
-
-```{r}
-mod_irt_multidimmh
-```
-
-```{r}
-coef(mod_irt_multidimmh, IRTpars = TRUE, simplify = TRUE)
-```
-
-```{r}
-# Vérifier les indices d'ajustement pour chaque item
-item_fitss <- itemfit(mod_irt_multidimmh)
-print(item_fitss)
-
-```
-
-Bien que que le model MHRM fit mieux avec mes données , la comparaison par l'anova nous dit que le modèle bicfactor est meilleur avec un RMSEA =
-
-```         
-"RMSEA:  0.0646914821662773"
-Le modèle a un ajustement acceptable.
-```
-
-Mais pour ce modèle les indices d'ajustement nous indiquent que la question DS_A4 est mal ajustéé
