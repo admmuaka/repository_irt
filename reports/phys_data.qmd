@@ -1,0 +1,385 @@
+---
+title: "Phys_data"
+format: html
+editor: visual
+---
+
+```{r}
+# Charger les packages nécessaires
+#install.packages(c("readxl", "psych", "lavaan", "GPArotation"))
+#install.packages("mirt")
+library(readxl)
+library(psych)
+library(lavaan)
+library(GPArotation)
+library(mirt)
+#install.packages("semPlot")
+library(semPlot)
+library(ggplot2)
+library(dplyr)
+```
+
+```{r}
+#file_path <- "/Users/admmuaka/Documents/Master_1/stage/IRT/tableau_fusionne2.xlsx"
+#data <- read_excel(file_path, sheet = "Sheet1")
+
+file_path <- "/Users/admmuaka/Documents/Master_1/stage/IRT/IRT_data.xlsx"
+data <- read_excel(file_path, sheet = "Sheet1")
+data
+
+file_path <- "/Users/admmuaka/Documents/Master_1/stage/IRT/subset_data.xlsx"
+subset_phys<- read_excel(file_path, sheet = "Sheet1")
+subset_phys
+
+
+```
+
+```{r}
+
+
+# Sélection des colonnes pertinentes pour chaque dimension
+physique_data <- select_columns_between(data, "Q1", "Q14")
+physique_data <- na.omit(physique_data)
+#physique_data$Q7[physique_data$Q7 ==5] <- 2
+
+physique_data 
+dim(physique_data)
+
+```
+
+Vérification des Conditions IRT
+
+1.  **Unidimensionalité** : L'analyse exploratoire et factorielle
+
+2.  **Indépendance Locale** : On va utiliser les résidus Q3 pour vérifier cela.
+
+3.  **Monotonicité** : Tracez les courbes de caractéristiques des items (ICC).
+
+```{r}
+#  Analyse factorielle exploratoire (EFA)
+efa_resultsp <- mirt(physique_data, 1, exploratory = TRUE)
+
+# Afficher les résultats
+summary(efa_resultsp)
+
+# Extraire les chargements factoriels
+loadings <- mod2values(efa_resultsp)
+loadings_df <- subset(loadings, grepl("a1", name))
+
+# Convertir les chargements en data frame pour ggplot
+loadings_df$item <- loadings_df$item
+loadings_df$loading <- loadings_df$value
+loadings_df <- loadings_df[order(loadings_df$loading), ]
+
+# Plotter les chargements factoriels avec ggplot2
+ggplot(loadings_df, aes(x = reorder(item, loading), y = loading)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  labs(title = "Factor Loadings from EFA",
+       x = "Items",
+       y = "Loadings") +
+  theme_minimal()
+
+
+
+
+
+```
+
+**Items fortement liés au facteur latent** : Q2, Q3, Q4 et Q5,Q9,Q8,Q1 ,Q11,Q10,Q13,Q14ont des chargements élevés, ce qui signifie qu'ils sont fortement corrélés avec le facteur latent.
+
+La question **Q6 a un chargement factorielle \<0.3**
+
+**Q7**,**Q12**  : Ont des chargements négatifs, ce qui pourrait indiquer une relation inverse avec le facteur latent ou des problèmes dans la formulation des items.
+
+La proportion de la variance totale des items expliquée par le facteur latent, ici 0.327 (ou 32.7%).
+
+```{r}
+# Suppression des questions spécifiques en utilisant la sélection de colonnes de base R
+physique_data <- physique_data[, !(names(physique_data) %in% c("Q7", "Q12","Q6","Q13"))]
+
+# Afficher les premières lignes du dataframe modifié
+head(physique_data)
+```
+
+```{r}
+
+#  Analyse factorielle exploratoire (EFA)
+efa_resultsp <- mirt(physique_data, 1, exploratory = TRUE)
+
+# Afficher les résultats
+summary(efa_resultsp)
+
+# Extraire les chargements factoriels
+loadings <- mod2values(efa_resultsp)
+loadings_df <- subset(loadings, grepl("a1", name))
+
+# Convertir les chargements en data frame pour ggplot
+loadings_df$item <- loadings_df$item
+loadings_df$loading <- loadings_df$value
+loadings_df <- loadings_df[order(loadings_df$loading), ]
+
+# Plotter les chargements factoriels avec ggplot2
+ggplot(loadings_df, aes(x = reorder(item, loading), y = loading)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  labs(title = "Factor Loadings from EFA",
+       x = "Items",
+       y = "Loadings") +
+  theme_minimal()
+
+
+```
+
+```{r}
+# Calculer la matrice de corrélation
+cor_matrix <- cor(physique_data, use = "pairwise.complete.obs")
+
+# Effectuer une analyse factorielle exploratoire avec extraction des valeurs propres
+fa_parallel <- fa.parallel(cor_matrix, fa = "fa", n.obs = nrow(physique_data))
+
+# Afficher les valeurs propres
+print(fa_parallel$fa.values)
+
+# Tracer les valeurs propres
+plot(fa_parallel$fa.values, type = "b", 
+     xlab = "Number of Factors", 
+     ylab = "Eigenvalue", 
+     main = "Scree Plot")
+
+# Ajouter une ligne horizontale à y = 1 pour faciliter l'interprétation
+abline(h = 1, col = "red", lty = 2)
+```
+
+#### Indépendance Locale
+
+Pour vérifier l'indépendance locale on utilise les résidus Q3. Des résidus Q3 proches de zéro indiquent que l'indépendance locale est respectée.
+
+```{r}
+# Vérification de l'indépendance locale via les résidus Q3
+residualsp <- residuals(efa_resultsp, type = "Q3")
+#print(residuals)
+```
+
+certaines valeurs individuelles sont plus élevées (jusqu'à 0.49), ce qui peut indiquer des violations potentielles de l'indépendance locale.
+
+```{r}
+# Convertir les résidus en data frame pour analyse
+residuals_dfp <- as.data.frame(as.table(residualsp))
+colnames(residuals_dfp) <- c("Item1", "Item2", "Q3")
+# Filtrer les paires avec des valeurs Q3 élevées (généralement > 0.2 ou < -0.2)
+high_Q3_pairsp <- subset(residuals_dfp, abs(Q3) > 0.3)
+high_Q3_pairsp
+```
+
+1.  **Q3 pour Q4 et Q5** : La corrélation résiduelle est de 0.305, ce qui est au-dessus du seuil de 0.30. Cela suggère une dépendance locale  entre les items Q4 et Q5.
+
+2.  **Q3 pour Q3 et Q9** : La corrélation résiduelle est de -0.333, ce qui est négatif et assez éloigné de 0, mais ne pose pas de problème majeur pour l'indépendance locale.
+
+```{r}
+
+mod_irt_unip <- mirt(physique_data, 1)
+summary(mod_irt_unip)
+
+```
+
+-   Nous pouvons voir que les items ont des chargements factoriels élevés (supérieurs à 0.3), indiquant qu'ils sont fortement corrélés avec le facteur latent.
+
+-   **SS Loadings (Sum of Squared Loadings)** : La somme des carrés des chargements factoriels, ici 3.782, indique la variance totale expliquée par le facteur latent.
+
+-   **Proportion Var (Proportion de la Variance)** : La proportion de la variance totale des items expliquée par le facteur latent, ici 0.378 (ou 37.8%).
+
+Une proportion de variance de 37.8% est respectable pour un modèle unidimensionnel, bien qu'il reste de la variance inexpliquée.
+
+```{r}
+# Vérifier les indices d'ajustement
+modelfit_mod_irt_unip <- M2(mod_irt_unip)
+modelfit_mod_irt_unip
+# Extraire le RMSEA
+rmsea_valueuni <- modelfit_mod_irt_unip$RMSEA[1]
+print(paste("RMSEA: ", rmsea_valueuni))
+
+# Interpréter le RMSEA
+if (rmsea_valueuni < 0.05) {
+  cat("Le modèle a un très bon ajustement.\n")
+} else if (rmsea_valueuni < 0.08) {
+  cat("Le modèle a un ajustement acceptable.\n")
+} else if (rmsea_valueuni < 0.10) {
+  cat("Le modèle a un ajustement médiocre.\n")
+} else {
+  cat("Le modèle a un mauvais ajustement.\n")
+}
+```
+
+Le modèle a un ajustement acceptable car on a une RMSEA =0.07\>0.6
+
+```{r}
+# Afficher les résultats
+summary(mod_irt_unip, suppress =0.3)
+```
+
+```{r}
+# Calculate and print item fit statistics
+item_fit <- itemfit(mod_irt_unip)
+print(item_fit)
+```
+
+Estimation paramètres modèle
+
+```{r}
+# Extraire les paramètres des items
+coef(mod_irt_unip, simplify = TRUE)
+```
+
+```{r}
+# Extract item parameters
+item_params <- coef(mod_irt_unip, IRTpars = TRUE, simplify = TRUE)
+item_params
+```
+
+**Paramètres de Difficulté (d vs b)** : Les paramètres d sont sur l'échelle des logites (log-odds) et représentent la difficulté pour atteindre une certaine probabilité de succès. Les paramètres b sont les difficultés exprimées sur une échelle de moyenne (proba de 0.50).
+
+```{r}
+# Extract item parameters
+item_params <- coef(mod_irt_unip, IRTpars = TRUE, simplify = TRUE)
+
+# Access the 'items' component directly
+item_params_df <- as.data.frame(item_params$items)
+
+# Print the structure of item_params_df to ensure it's correct
+str(item_params_df)
+# Identify items with low discrimination (e.g., a < 0.5)
+low_discrimination_items <- which(item_params_df[, "a"] < 0.5)
+low_discrimination_names <- names(low_discrimination_items)
+
+# Identify items with high discrimination (e.g., a > 1.5)
+high_discrimination_items <- which(item_params_df[, "a"] > 1.5)
+high_discrimination_names <- names(high_discrimination_items)
+
+# Identify items with low difficulty (b < -2)
+low_difficulty_items <- which(apply(item_params_df[, c("b1", "b2", "b3", "b4")], 1, function(x) any(x < -2) & !any(x > 2)))
+low_difficulty_names <- rownames(item_params_df)[low_difficulty_items]
+
+# Identify items with high difficulty (b > 2)
+high_difficulty_items <- which(apply(item_params_df[, c("b1", "b2", "b3", "b4")], 1, function(x) any(x > 2) & !any(x < -2)))
+high_difficulty_names <- rownames(item_params_df)[high_difficulty_items]
+
+# Print the results
+cat("Items with low discrimination (a < 0.5):\n")
+print(setNames(low_discrimination_items, rownames(item_params_df)[low_discrimination_items]))
+cat("Items with high discrimination (a > 1.5):\n")
+print(setNames(high_discrimination_items, rownames(item_params_df)[high_discrimination_items]))
+cat("Items with low difficulty (b < -2):\n")
+print(setNames(low_difficulty_items, low_difficulty_names))
+cat("Items with high difficulty (b > 2):\n")
+print(setNames(high_difficulty_items, high_difficulty_names))
+```
+
+```{r}
+# Plot ICCs for all items
+plot(mod_irt_unip, type = 'trace')
+```
+
+```{r}
+# Plot Test Information Function
+plot(mod_irt_unip, type = 'info')
+```
+
+```{r}
+# Calculer les scores des capacités latentes
+scores_latents <- fscores(mod_irt_unip, method = 'EAP')
+
+# Afficher les scores pour les 6 premiers individus
+head(scores_latents)
+```
+
+```{r}
+# Calcule des statistiques résumées des scores latents
+summary(scores_latents)
+
+```
+
+```{r}
+# Convert relevant columns to factors
+subset_phys$Sexe_01 <- as.factor(subset_phys$Sexe_01)
+
+# Define the grouping variable
+groups <- subset_phys$Sexe_01 
+
+# Fit the more complex multi-group model assuming DIF (with free items)
+dif_model_phys <- multipleGroup(physique_data, 1, group = groups, invariance = c("slopes", "intercepts", "free_items"))
+# Print the model summary to examine gender effects
+summary(dif_model_phys)
+
+
+```
+
+```{r}
+# Extract and print the coefficients to see the gender effect on IRT parameters
+coef_gender_effects_physique <- coef(dif_model_phys, simplify = TRUE)
+print(coef_gender_effects_physique)
+```
+
+```{r}
+# Convert AgeGroup to factor
+subset_phys$Age <- as.factor(subset_phys$Age)
+
+# Define the grouping variable
+groups_age <- subset_phys$Age
+
+# Fit the multi-group model with AgeGroup as covariate
+dif_model_age_physique <- multipleGroup(physique_data, 1, group = groups_age, invariance = c("slopes", "intercepts", "free_items"))
+# Print the model summary to examine effects of AgeGroup
+summary(dif_model_age_physique)
+```
+
+```{r}
+# Extract and print the coefficients to see the effect of AgeGroup on IRT parameters
+coef_effects_age_physique <- coef(dif_model_age_physique, simplify = TRUE)
+print(coef_effects_age_physique)
+ 
+```
+
+```{r}
+# Convert relevant columns to factors
+subset_phys$Pb_Physique_01 <- as.factor(subset_phys$Pb_Physique_01)
+
+# Define the grouping variable
+groups <- subset_phys$Pb_Physique_01
+
+# Fit the more complex multi-group model assuming DIF (with free items)
+dif_model_pb_physique <- multipleGroup(physique_data, 1, group = groups, invariance = c("slopes", "intercepts", "free_items"))
+
+# Print the model summary to examine effects of Pb_Physique_01
+summary(dif_model_pb_physique)
+```
+
+```{r}
+# Extract and print the coefficients to see the effect of Pb_Physique_01 on IRT parameters
+coef_effects_pb_physique <- coef(dif_model_pb_physique, simplify = TRUE)
+print(coef_effects_pb_physique)
+```
+
+### Conclusions clés pour les trois variables :
+
+#### Paramètres de discrimination (a1) :
+
+Les paramètres de discrimination (a1) indiquent dans quelle mesure chaque item différencie bien les individus ayant différents niveaux du trait latent. Ces paramètres sont cohérents dans tous les groupes pour toutes les variables, ce qui suggère qu'il n'y a pas de DIF significatif en termes de discrimination des items.
+
+#### Paramètres de difficulté (d1, d2, d3, etc.) :
+
+Les paramètres de difficulté indiquent les seuils auxquels les répondants passent d'une catégorie de réponse à une autre. Ces paramètres sont également cohérents dans les deux groupes pour toutes les variables, indiquant qu'il n'y a pas de DIF significatif en termes de difficulté des items.
+
+#### Valeurs NA :
+
+Certaines entrées dans les paramètres de difficulté ont des valeurs NA. Cela se produit parce que certains items ont moins de catégories de réponse que d'autres. Par exemple, les items avec seulement deux catégories de réponse (items binaires) n'ont pas de seuils multiples, et donc, les paramètres de difficulté plus élevés (d2, d3, etc.) ne sont pas applicables et sont représentés par NA. Cela est typique dans les modèles IRT où le nombre de seuils varie en fonction du nombre de catégories de réponse pour chaque item.
+
+#### Cohérence entre les groupes :
+
+La cohérence des paramètres de discrimination et de difficulté entre les groupes indique que les items fonctionnent de manière similaire, que les répondants aient des problèmes physiques, soient jeunes ou âgés, hommes ou femmes. Cela suggère qu'il n'y a pas de DIF significatif pour les items basés sur la présence de problèmes physiques.
+
+#### Conclusion
+
+Cela indique que l'instrument de mesure est impartial et fiable pour tous les groupes et toutes les variables, garantissant que le trait latent est mesuré de manière cohérente.
+
+Final model :Q1 ,Q2, Q3, Q4 ,Q5, Q8, Q9 ,Q10,Q11,Q14
