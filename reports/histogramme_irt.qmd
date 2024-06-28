@@ -1,0 +1,109 @@
+---
+title: "Untitled"
+format: html
+editor: visual
+---
+
+```{r}
+# Charger les bibliothèques nécessaires
+library(readxl)
+library(dplyr)
+library(ggplot2)
+```
+
+```{r}
+file_path <- "/Users/admmuaka/Documents/Master_1/stage/IRT/subset_data.xlsx"
+data<- read_excel(file_path, sheet = "Sheet1")
+data
+```
+
+```{r}
+
+
+# Définir les groupes d'âge
+data <- data %>%
+  mutate(AgeGroup = case_when(
+    Age >= 18 & Age < 35 ~ '18-35',
+    Age >= 35 & Age < 60 ~ '35-60',
+    Age >= 60 ~ '60+',
+    TRUE ~ NA_character_
+  ))
+
+# Définir les maladies chroniques
+data <- data %>%
+  mutate(ChronicIllness = ifelse(Pb_Physique_01 == 1, 'Chronic Illness', 'Healthy'))
+
+# Grouper par groupe d'âge et état de santé
+age_grouped <- data %>%
+  group_by(AgeGroup, ChronicIllness) %>%
+  summarise(Count = n(), .groups = 'drop')
+
+# Créer l'histogramme
+ggplot(age_grouped, aes(x = AgeGroup, y = Count, fill = ChronicIllness)) +
+  geom_bar(stat = 'identity', position = 'stack') +
+  labs(x = 'Age Group', y = 'Number of People', title = 'Number of People with Chronic Illness vs Healthy by Age Group') +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 0, hjust = 0.5)) +
+  scale_fill_manual(name = "Health Status", values = c('Chronic Illness' = 'red', 'Healthy' = 'green'))
+
+```
+
+```{r}
+# Définir les groupes d'âge
+data <- data %>%
+  mutate(AgeGroup = case_when(
+    Age >= 18 & Age < 35 ~ '18-35',
+    Age >= 35 & Age < 60 ~ '35-60',
+    Age >= 60 ~ '60+',
+    TRUE ~ NA_character_
+  ))
+
+# Définir les maladies chroniques
+data <- data %>%
+  mutate(ChronicIllness = ifelse(Pb_Physique_01 == 1, 'Chronic Illness', 'Healthy'))
+
+# Définir le sexe (0 = Homme, 1 = Femme)
+data <- data %>%
+  mutate(Sex = ifelse(Sexe_01 == 0, 'Male', 'Female'))
+
+# Grouper par groupe d'âge, état de santé et sexe
+age_sex_grouped <- data %>%
+  group_by(AgeGroup, ChronicIllness, Sex) %>%
+  summarise(Count = n(), .groups = 'drop')
+
+
+
+# Créer l'histogramme
+ggplot(age_sex_grouped, aes(x = AgeGroup, y = Count, fill = ChronicIllness)) +
+  geom_bar(stat = 'identity', position = 'stack') +
+  facet_wrap(~ Sex) +
+  labs(x = 'Age Group', y = 'Number of People', title = 'Number of People with Chronic Illness vs Healthy by Age Group and Sex') +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 0, hjust = 0.5)) +
+  scale_fill_manual(name = "Health Status", values = c('Chronic Illness' = 'red', 'Healthy' = 'green'))
+```
+
+```{r}
+# Définir les maladies chroniques
+data <- data %>%
+  mutate(ChronicIllness = ifelse(Pb_Physique_01 == 1, 'Chronic Illness', 'Healthy'))
+
+# Définir le sexe (0 = Homme, 1 = Femme)
+data <- data %>%
+  mutate(Sex = ifelse(Sexe_01 == 0, 'Male', 'Female'))
+
+# Grouper par sexe et état de santé
+sex_grouped <- data %>%
+  group_by(Sex, ChronicIllness) %>%
+  summarise(Count = n(), .groups = 'drop')
+
+# Afficher le nombre de femmes et d'hommes malades et en bonne santé
+print(sex_grouped)
+
+# Créer l'histogramme
+ggplot(sex_grouped, aes(x = Sex, y = Count, fill = ChronicIllness)) +
+  geom_bar(stat = 'identity', position = 'stack') +
+  labs(x = 'Sex', y = 'Number of People', title = 'Number of People with Chronic Illness vs Healthy by Sex') +
+  theme_minimal() +
+  scale_fill_manual(name = "Health Status", values = c('Chronic Illness' = 'red', 'Healthy' = 'green'))
+```
